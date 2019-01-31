@@ -8,6 +8,7 @@
 #include <math.h> // fmin, fmax.
 #include <stdarg.h>
 #include <stdint.h> // Using int#_t types for consistency and because uint is shorter than unsigned int.
+#include <stdlib.h> // Things like abs.
 #include <string.h> // memcpy, memmove, memset.
 
 #define HbNull ((void *) 0)
