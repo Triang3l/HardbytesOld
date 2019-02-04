@@ -1,5 +1,5 @@
 #include "HbPlatform.h"
-#ifdef HbPlatform_OS_Windows
+#if HbPlatform_OS_Windows
 #include "HbFeedback.h"
 #include <Windows.h>
 

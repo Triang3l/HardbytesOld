@@ -31,7 +31,7 @@ typedef uint8_t HbBool;
 #error Unsupported target CPU.
 #endif
 
-#if defined(HbPlatform_CPU_x86_64) || defined(HbPlatform_CPU_Arm_64)
+#if HbPlatform_CPU_x86_64 || HbPlatform_CPU_Arm_64
 #define HbPlatform_CPU_64Bit 1
 #else
 #define HbPlatform_CPU_32Bit 1
@@ -58,9 +58,9 @@ typedef uint8_t HbBool;
 
 // Alignment - HbAligned must be placed after the struct keyword.
 
-#if defined(HbPlatform_Compiler_MSVC)
+#if HbPlatform_Compiler_MSVC
 #define HbAligned(alignment) __declspec(align(alignment))
-#elif defined(HbPlatform_Compiler_GNU)
+#elif HbPlatform_Compiler_GNU
 #define HbAligned(alignment) __attribute__((aligned(alignment)))
 #else
 #error No HbAligned known for the current compiler.
@@ -68,9 +68,9 @@ typedef uint8_t HbBool;
 
 // Force inlining.
 
-#if defined(HbPlatform_Compiler_MSVC)
+#if HbPlatform_Compiler_MSVC
 #define HbForceInline __forceinline
-#elif defined(HbPlatform_Compiler_GNU)
+#elif HbPlatform_Compiler_GNU
 #define HbForceInline __attribute__((always_inline))
 #else
 #error No HbForceInline known for the current compiler.
@@ -82,7 +82,7 @@ typedef uint8_t HbBool;
 
 // Stack allocation.
 
-#if defined(HbPlatform_OS_Windows)
+#if HbPlatform_OS_Windows
 #include <malloc.h>
 #define HbStackAlloc _alloca
 #else

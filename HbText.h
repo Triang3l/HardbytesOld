@@ -31,7 +31,7 @@ typedef uint32_t HbTextU32; // Whole code point.
 #define HbTextA_Length strlen
 #define HbTextA_Compare strcmp
 #define HbTextA_ComparePart strncmp
-#ifdef HbPlatform_OS_Windows
+#if HbPlatform_OS_Windows
 #define HbTextA_CompareCaseless _stricmp
 #define HbTextA_ComparePartCaseless _strnicmp
 #else

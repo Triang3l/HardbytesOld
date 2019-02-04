@@ -1,7 +1,7 @@
 #include "HbFeedback.h"
 #include "HbText.h"
 
-#if defined(HbPlatform_OS_Windows)
+#if HbPlatform_OS_Windows
 
 /********************
  * Windows-specific.
@@ -19,7 +19,7 @@ void HbFeedback_DebugMessageForceV(char const * format, va_list arguments) {
 	OutputDebugStringA(message);
 }
 
-#if defined(HbPlatform_OS_WindowsDesktop)
+#if HbPlatform_OS_WindowsDesktop
 void HbFeedback_CrashV(HbBool isAssert, char const * functionName, char const * messageFormat, va_list messageArguments) {
 	char message[1024];
 	size_t written = HbTextA_Copy(message, HbArrayLength(message), functionName);
