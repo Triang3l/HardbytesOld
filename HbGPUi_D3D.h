@@ -1,8 +1,8 @@
 #ifndef HbInclude_HbGPUi_D3D
 #define HbInclude_HbGPUi_D3D
 #include "HbGPU.h"
-#include "HbText.h"
 #if HbGPU_Implementation_D3D
+#include "HbText.h"
 
 extern IDXGIFactory2 * HbGPUi_D3D_DXGIFactory;
 

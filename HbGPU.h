@@ -50,4 +50,25 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 		HbBool needGraphicsQueue, HbBool needCopyQueue);
 void HbGPU_Device_Shutdown(HbGPU_Device * device);
 
+/****************************************
+ * Fence for awaiting the GPU on the CPU
+ ****************************************/
+
+typedef struct HbGPU_Fence {
+	HbGPU_Device * device;
+	HbGPU_CmdQueue queue;
+	#if HbGPU_Implementation_D3D
+	ID3D12Fence * d3dFence;
+	HANDLE d3dCompletionEvent;
+	uint64_t d3dAwaitedValue;
+	#endif
+} HbGPU_Fence;
+
+HbBool HbGPU_Fence_Init(HbGPU_Fence * fence, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue);
+void HbGPU_Fence_Destroy(HbGPU_Fence * fence);
+void HbGPU_Fence_Enqueue(HbGPU_Fence * fence);
+HbBool HbGPU_Fence_IsCrossed(HbGPU_Fence * fence);
+void HbGPU_Fence_Await(HbGPU_Fence * fence);
+
+
 #endif

@@ -2,8 +2,9 @@
 #if HbGPU_Implementation_D3D
 #include <dxgidebug.h>
 
-static HbBool HbGPUi_D3D_Debug = HbFalse;
-IDXGIFactory2 * HbGPUi_D3D_DXGIFactory = HbNull;
+/****************
+ * Object naming
+ ****************/
 
 void HbGPUi_D3D_SetObjectName(void * object, HbGPUi_D3D_ObjectNameSetter setter, HbTextU8 const * name) {
 	if (name == HbNull || name[0] == '\0') {
@@ -63,6 +64,13 @@ void HbGPUi_D3D_SetDXGISubObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSe
 	setter(object, &WKPDID_D3DDebugObjectNameW, (UINT) (fullNameU16LengthElems * sizeof(HbTextU16)), fullNameU16);
 }
 
+/********************
+ * Subsystem control
+ ********************/
+
+static HbBool HbGPUi_D3D_Debug = HbFalse;
+IDXGIFactory2 * HbGPUi_D3D_DXGIFactory = HbNull;
+
 HbBool HbGPU_Init(HbBool debug) {
 	if (debug) {
 		ID3D12Debug * debugInterface;
@@ -107,6 +115,10 @@ void HbGPU_Shutdown() {
 		HbGPUi_D3D_Debug = HbFalse;
 	}
 }
+
+/*********
+ * Device
+ *********/
 
 HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t deviceIndex,
 		HbBool needGraphicsQueue, HbBool needCopyQueue) {
@@ -194,6 +206,49 @@ void HbGPU_Device_Shutdown(HbGPU_Device * device) {
 	}
 	ID3D12Device_Release(device->d3dDevice);
 	IDXGIAdapter3_Release(device->dxgiAdapter);
+}
+
+/********
+ * Fence
+ ********/
+
+HbBool HbGPU_Fence_Init(HbGPU_Fence * fence, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue) {
+	fence->device = device;
+	fence->queue = queue;
+	fence->d3dAwaitedValue = 0;
+	fence->d3dCompletionEvent = CreateEvent(HbNull, FALSE, FALSE, HbNull);
+	if (fence->d3dCompletionEvent == HbNull) {
+		return HbFalse;
+	}
+	if (FAILED(ID3D12Device_CreateFence(device->d3dDevice, fence->d3dAwaitedValue, D3D12_FENCE_FLAG_NONE,
+			&IID_ID3D12Fence, &fence->d3dFence))) {
+		CloseHandle(fence->d3dCompletionEvent);
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(fence->d3dFence, fence->d3dFence->lpVtbl->SetName, name);
+	return HbTrue;
+}
+
+void HbGPU_Fence_Destroy(HbGPU_Fence * fence) {
+	ID3D12Fence_Release(fence->d3dFence);
+	CloseHandle(fence->d3dCompletionEvent);
+}
+
+void HbGPU_Fence_Enqueue(HbGPU_Fence * fence) {
+	ID3D12CommandQueue * queue = fence->device->d3dCommandQueues[fence->queue];
+	ID3D12CommandQueue_Signal(queue, fence->d3dFence, ++fence->d3dAwaitedValue);
+}
+
+HbBool HbGPU_Fence_IsCrossed(HbGPU_Fence * fence) {
+	return ID3D12Fence_GetCompletedValue(fence->d3dFence) >= fence->d3dAwaitedValue;
+}
+
+void HbGPU_Fence_Await(HbGPU_Fence * fence) {
+	if (ID3D12Fence_GetCompletedValue(fence->d3dFence) >= fence->d3dAwaitedValue) {
+		return;
+	}
+	ID3D12Fence_SetEventOnCompletion(fence->d3dFence, fence->d3dAwaitedValue, fence->d3dCompletionEvent);
+	WaitForSingleObject(fence->d3dCompletionEvent, INFINITE);
 }
 
 #endif
