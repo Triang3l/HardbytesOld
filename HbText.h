@@ -46,4 +46,80 @@ inline size_t HbTextA_CopyInto(char * target, size_t targetBufferSize, size_t ta
 size_t HbTextA_FormatV(char * target, size_t targetBufferSize, char const * format, va_list arguments);
 size_t HbTextA_Format(char * target, size_t targetBufferSize, char const * format, ...);
 
+/*******************************************************************
+ * Common Unicode
+ * Not very strict handling, just storage and conversion safeguards
+ *******************************************************************/
+
+inline HbBool HbTextU32_IsCharValid(HbTextU32 character) {
+	// Allow only characters that can be stored in UTF-8 and UTF-16, disallow BOM and surrogates.
+	return character <= 0x10FFFF && (character & 0xFFFE) != 0xFFFE && (character & ~((HbTextU32) 0x7FF)) != 0xD800;
+}
+HbForceInline HbTextU32 HbTextU32_ValidateChar(HbTextU32 character) {
+	return HbTextU32_IsCharValid(character) ? character : HbText_InvalidSubstitute;
+}
+
+/*************************************************************************
+ * UTF-8 - assuming no incomplete characters
+ * (invalid characters are treated as sequences of substitute characters)
+ *************************************************************************/
+
+inline uint32_t HbTextU8_ValidCharElemCount(HbTextU32 character) {
+	return (character > 0) + (character > 0x7F) + (character > 0x7FF) + (character > 0xFFFF);
+}
+inline uint32_t HbTextU8_CharElemCount(HbTextU32 character) {
+	return HbTextU32_IsCharValid(character) ? HbTextU8_ValidCharElemCount(character) : 1;
+}
+
+#define HbTextU8_LengthElems HbTextA_Length
+#define HbTextU8_Compare HbTextA_Compare
+#define HbTextU8_CompareCaselessEnglish HbTextA_CompareCaseless
+
+HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor); // 0 when no characters left. Advances the cursor.
+inline size_t HbTextU8_LengthChars(HbTextU8 const * text) {
+	size_t length = 0;
+	while (HbTextU8_NextChar(&text) != '\0') {
+		++length;
+	}
+	return length;
+};
+inline size_t HbTextU8_LengthU16Elems(HbTextU8 const * text) {
+	size_t length = 0;
+	HbTextU32 character;
+	while ((character = HbTextU8_NextChar(&text)) != '\0') {
+		length += 1 + ((character >> 16) != 0);
+	}
+	return length;
+}
+
+/*********
+ * UTF-16
+ *********/
+
+HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor); // 0 when no characters left. Advances the cursor.
+
+// No validation - returns real data size (for appending)!
+inline size_t HbTextU16_LengthElems(HbTextU16 const * text) {
+	HbTextU16 const * start = text;
+	while (*(text++) != '\0') {}
+	return (size_t) (text - start);
+}
+inline size_t HbTextU16_LengthChars(HbTextU16 const * text) {
+	size_t length = 0;
+	while (HbTextU16_NextChar(&text) != '\0') {
+		++length;
+	}
+	return length;
+};
+
+// Places a character in the buffer if possible, returning the number of elements actually written.
+// Does not null-terminate!
+uint32_t HbTextU16_WriteValidChar(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU32 character);
+
+// This actually validates characters - size in elements may be changed if there are invalid characters!
+size_t HbTextU16_Copy(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU16 const * source);
+
+// Allocate HbTextU8_LengthU16Elems elements for this.
+size_t HbTextU16_FromU8(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU8 const * source);
+
 #endif
