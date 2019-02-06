@@ -70,5 +70,23 @@ void HbGPU_Fence_Enqueue(HbGPU_Fence * fence);
 HbBool HbGPU_Fence_IsCrossed(HbGPU_Fence * fence);
 void HbGPU_Fence_Await(HbGPU_Fence * fence);
 
+/***************
+ * Command list
+ ***************/
+
+typedef struct HbGPU_CmdList {
+	HbGPU_CmdQueue queue;
+	#if HbGPU_Implementation_D3D
+	ID3D12CommandAllocator * d3dCommandAllocator;
+	ID3D12CommandList * d3dSubmissionCommandList;
+	ID3D12GraphicsCommandList * d3dGraphicsCommandList;
+	#endif
+} HbGPU_CmdList;
+
+HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue);
+void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
 
 #endif
