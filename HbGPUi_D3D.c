@@ -251,4 +251,103 @@ void HbGPU_Fence_Await(HbGPU_Fence * fence) {
 	WaitForSingleObject(fence->d3dCompletionEvent, INFINITE);
 }
 
+/*********
+ * Buffer
+ *********/
+
+D3D12_RESOURCE_STATES HbGPUi_D3D_Buffer_Usage_ToStates(HbGPU_Buffer_Usage usage) {
+	switch (usage) {
+	case HbGPU_Buffer_Usage_ShaderEdit:
+		return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	case HbGPU_Buffer_Usage_CopyTarget:
+		return D3D12_RESOURCE_STATE_COPY_DEST;
+	case HbGPU_Buffer_Usage_CrossQueue:
+		return D3D12_RESOURCE_STATE_COMMON;
+	case HbGPU_Buffer_Usage_CPUToGPU:
+		return D3D12_RESOURCE_STATE_GENERIC_READ;
+	}
+	D3D12_RESOURCE_STATES states = (D3D12_RESOURCE_STATES) 0;
+	if (usage & (HbGPU_Buffer_Usage_Read_Vertices | HbGPU_Buffer_Usage_Read_Constants)) {
+		states |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+	}
+	if (usage & HbGPU_Buffer_Usage_Read_Indices) {
+		states |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
+	}
+	if (usage & HbGPU_Buffer_Usage_Read_StructuresNonPS) {
+		states |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+	}
+	if (usage & HbGPU_Buffer_Usage_Read_StructuresPS) {
+		states |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	}
+	if (usage & HbGPU_Buffer_Usage_Read_CopySource) {
+		states |= D3D12_RESOURCE_STATE_COPY_SOURCE;
+	}
+	return states;
+}
+
+HbBool HbGPU_Buffer_Init(HbGPU_Buffer * buffer, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Buffer_Access access, uint32_t size, HbBool shaderEditable, HbGPU_Buffer_Usage initialUsage) {
+	if (size == 0) {
+		return HbFalse;
+	}
+	buffer->access = access;
+	buffer->size = size;
+	D3D12_HEAP_PROPERTIES heapProperties = { 0 };
+	switch (access) {
+	case HbGPU_Buffer_Access_GPU:
+		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+		break;
+	case HbGPU_Buffer_Access_CPUToGPU:
+		heapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+		initialUsage = HbGPU_Buffer_Usage_CPUToGPU;
+		break;
+	case HbGPU_Buffer_Access_GPUToCPU:
+		heapProperties.Type = D3D12_HEAP_TYPE_READBACK;
+		break;
+	}
+	D3D12_RESOURCE_DESC resourceDesc = {
+		.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+		.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+		.Width = size,
+		.Height = 1,
+		.DepthOrArraySize = 1,
+		.MipLevels = 1,
+		.Format = DXGI_FORMAT_UNKNOWN,
+		.SampleDesc.Count = 1,
+		.SampleDesc.Quality = 0,
+		.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+		.Flags = shaderEditable ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE,
+	};
+	if (FAILED(ID3D12Device_CreateCommittedResource(device->d3dDevice, &heapProperties, D3D12_HEAP_FLAG_NONE,
+			&resourceDesc, HbGPUi_D3D_Buffer_Usage_ToStates(initialUsage), HbNull, &IID_ID3D12Resource, &buffer->d3dResource))) {
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(buffer->d3dResource, buffer->d3dResource->lpVtbl->SetName, name);
+	return HbTrue;
+}
+
+void HbGPU_Buffer_Destroy(HbGPU_Buffer * buffer) {
+	ID3D12Resource_Release(buffer->d3dResource);
+}
+
+void * HbGPU_Buffer_Map(HbGPU_Buffer * buffer, uint32_t readStart, uint32_t readLength) {
+	if (buffer->access != HbGPU_Buffer_Access_CPUToGPU) {
+		readStart = readLength = 0;
+	}
+	D3D12_RANGE readRange = { .Begin = readStart, .End = readStart + readLength };
+	void * mapping;
+	if (FAILED(ID3D12Resource_Map(buffer->d3dResource, 0, &readRange, &mapping))) {
+		return HbNull;
+	}
+	return mapping;
+}
+
+void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t writeLength) {
+	if (buffer->access != HbGPU_Buffer_Access_GPUToCPU) {
+		writeStart = writeLength = 0;
+	}
+	D3D12_RANGE writeRange = { .Begin = writeStart, .End = writeStart + writeLength };
+	ID3D12Resource_Unmap(buffer->d3dResource, 0, &writeRange);
+}
+
 #endif

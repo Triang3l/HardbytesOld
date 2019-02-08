@@ -26,6 +26,7 @@ void HbGPU_Shutdown();
 typedef enum HbGPU_CmdQueue {
 	HbGPU_CmdQueue_Graphics,
 	HbGPU_CmdQueue_Copy,
+
 	HbGPU_CmdQueue_QueueCount,
 } HbGPU_CmdQueue;
 
@@ -88,5 +89,150 @@ void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
+
+/*********
+ * Buffer
+ *********/
+
+typedef enum HbGPU_Buffer_Access {
+	HbGPU_Buffer_Access_GPU,
+	HbGPU_Buffer_Access_CPUToGPU,
+	HbGPU_Buffer_Access_GPUToCPU,
+} HbGPU_Buffer_Access;
+
+typedef uint32_t HbGPU_Buffer_Usage;
+enum {
+	// Read usage modes can be combined, other ones are exclusive.
+
+	HbGPU_Buffer_Usage_Read_Vertices = 1,
+	HbGPU_Buffer_Usage_Read_Constants = HbGPU_Buffer_Usage_Read_Vertices << 1,
+	HbGPU_Buffer_Usage_Read_Indices = HbGPU_Buffer_Usage_Read_Constants << 1,
+	HbGPU_Buffer_Usage_Read_StructuresNonPS = HbGPU_Buffer_Usage_Read_Indices << 1,
+	HbGPU_Buffer_Usage_Read_StructuresPS = HbGPU_Buffer_Usage_Read_StructuresNonPS << 1,
+	HbGPU_Buffer_Usage_Read_CopySource = HbGPU_Buffer_Usage_Read_StructuresPS << 1,
+
+	HbGPU_Buffer_Usage_ShaderEdit = HbGPU_Buffer_Usage_Read_CopySource << 1,
+	HbGPU_Buffer_Usage_CopyTarget = HbGPU_Buffer_Usage_ShaderEdit << 1,
+	// Being used on copy queue, for instance.
+	HbGPU_Buffer_Usage_CrossQueue = HbGPU_Buffer_Usage_CopyTarget << 1,
+	// Special usage for buffers in uploading memory.
+	HbGPU_Buffer_Usage_CPUToGPU = HbGPU_Buffer_Usage_CrossQueue << 1,
+};
+
+typedef struct HbGPU_Buffer {
+	HbGPU_Buffer_Access access;
+	uint32_t size;
+	#if HbGPU_Implementation_D3D
+	ID3D12Resource * d3dResource;
+	#endif
+} HbGPU_Buffer;
+
+HbBool HbGPU_Buffer_Init(HbGPU_Buffer * buffer, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Buffer_Access access, uint32_t size, HbBool shaderEditable, HbGPU_Buffer_Usage initialUsage);
+void HbGPU_Buffer_Destroy(HbGPU_Buffer * buffer);
+void * HbGPU_Buffer_Map(HbGPU_Buffer * buffer, uint32_t readStart, uint32_t readLength);
+void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t writeLength);
+
+/********
+ * Image
+ ********/
+
+typedef enum HbGPU_Image_Format {
+	HbGPU_Image_Format_RawStart,
+		HbGPU_Image_Format_8_R_UNorm = HbGPU_Image_Format_RawStart,
+		HbGPU_Image_Format_8_8_RG_UNorm,
+		HbGPU_Image_Format_8_8_8_8_RGBA_UNorm,
+		HbGPU_Image_Format_8_8_8_8_RGBA_sRGB,
+	HbGPU_Image_Format_RawEnd = HbGPU_Image_Format_8_8_8_8_RGBA_sRGB,
+	HbGPU_Image_Format_DepthStart,
+		HbGPU_Image_Format_D32 = HbGPU_Image_Format_DepthStart,
+		HbGPU_Image_Format_DepthAndStencilStart,
+			HbGPU_Image_Format_D32_S8 = HbGPU_Image_Format_DepthAndStencilStart,
+		HbGPU_Image_Format_DepthAndStencilEnd = HbGPU_Image_Format_D32_S8,
+	HbGPU_Image_Format_DepthEnd = HbGPU_Image_Format_DepthAndStencilEnd,
+	HbGPU_Image_Format_FormatCount,
+} HbGPU_Image_Format;
+HbForceInline HbBool HbGPU_Image_Format_IsDepth(HbGPU_Image_Format format) {
+	return format >= HbGPU_Image_Format_DepthStart && format <= HbGPU_Image_Format_DepthEnd;
+}
+HbForceInline HbBool HbGPU_Image_Format_HasStencil(HbGPU_Image_Format format) {
+	return format >= HbGPU_Image_Format_DepthAndStencilStart && format <= HbGPU_Image_Format_DepthAndStencilEnd;
+}
+
+typedef enum HbGPU_Image_Dimensions {
+	HbGPU_Image_Dimensions_1D,
+	HbGPU_Image_Dimensions_1DArray,
+	HbGPU_Image_Dimensions_2D,
+	HbGPU_Image_Dimensions_2DArray,
+	HbGPU_Image_Dimensions_Cube,
+	HbGPU_Image_Dimensions_CubeArray,
+	HbGPU_Image_Dimensions_3D,
+} HbGPU_Image_Dimensions;
+
+// Limits, based on the targeted D3D feature level 11_0, to prevent overflows (in file loading, for instance).
+enum {
+	HbGPU_Image_MaxSize1D2DLog2 = 14,
+	HbGPU_Image_MaxSize1D2D = 1 << HbGPU_Image_MaxSize1D2DLog2,
+	HbGPU_Image_MaxSize3DLog2 = 11,
+	HbGPU_Image_MaxSize3D = 1 << HbGPU_Image_MaxSize3DLog2,
+	HbGPU_Image_MaxLayersLog2 = 11,
+	HbGPU_Image_MaxLayers = 1 << HbGPU_Image_MaxLayersLog2,
+	HbGPU_Image_MaxLayersCube = HbGPU_Image_MaxLayers / 6,
+};
+
+typedef uint32_t HbGPU_Image_UsageOptions;
+enum {
+	// Certain color formats only - can be written to in shaders.
+	HbGPU_Image_UsageOptions_ShaderEditable = 1,
+	// Certain color formats only - can be bound as a color render target.
+	HbGPU_Image_UsageOptions_ColorRenderable = HbGPU_Image_UsageOptions_ShaderEditable << 1,
+	// For depth buffers - optimization, can't use as a texture.
+	HbGPU_Image_UsageOptions_DepthTestOnly = HbGPU_Image_UsageOptions_ColorRenderable << 1,
+};
+
+typedef struct HbGPU_Image_Info {
+	HbGPU_Image_Format format;
+	HbGPU_Image_Dimensions dimensions;
+	uint32_t width;
+	uint32_t height; // Must be 1 for 1D.
+	uint32_t depthOrLayers; // Must be 1 for non-arrays and non-3D.
+	uint32_t mips; // Must be at least 1.
+	uint32_t samplesLog2;
+	HbGPU_Image_UsageOptions usageOptions;
+} HbGPU_Image_Info;
+
+HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info);
+
+typedef struct HbGPU_Image {
+	HbGPU_Image_Info info;
+	#if HbGPU_Implementation_D3D
+	ID3D12Resource * d3dResource;
+	#endif
+} HbGPU_Image;
+
+typedef uint32_t HbGPU_Image_Usage;
+enum {
+	// Read usage modes can be combined, other ones are exclusive.
+
+	HbGPU_Image_Usage_Read_TexturePS = 1,
+	HbGPU_Image_Usage_Read_TextureNonPS = HbGPU_Image_Usage_Read_TexturePS << 1,
+	HbGPU_Image_Usage_Read_DepthReject = HbGPU_Image_Usage_Read_TextureNonPS << 1,
+	HbGPU_Image_Usage_Read_CopySource = HbGPU_Image_Usage_Read_DepthReject << 1,
+	HbGPU_Image_Usage_Read_ResolveSource = HbGPU_Image_Usage_Read_CopySource << 1,
+
+	HbGPU_Image_Usage_ColorRT = HbGPU_Image_Usage_Read_ResolveSource << 1,
+	HbGPU_Image_Usage_DepthTest = HbGPU_Image_Usage_ColorRT << 1,
+	HbGPU_Image_Usage_ShaderEdit = HbGPU_Image_Usage_DepthTest << 1,
+	HbGPU_Image_Usage_CopyTarget = HbGPU_Image_Usage_ShaderEdit << 1,
+	HbGPU_Image_Usage_ResolveTarget = HbGPU_Image_Usage_CopyTarget << 1,
+	HbGPU_Image_Usage_Present = HbGPU_Image_Usage_ResolveTarget << 1,
+	// Being used on copy queue, for instance.
+	HbGPU_Image_Usage_CrossQueue = HbGPU_Image_Usage_Present << 1,
+};
+
+// Assumes VALID image->info!
+HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name,
+		HbGPU_Device * device, HbGPU_Image_Usage initialUsage);
+void HbGPU_Image_Destroy(HbGPU_Image * image);
 
 #endif
