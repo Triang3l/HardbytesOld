@@ -1,6 +1,6 @@
 #include "HbParallel.h"
 
-#if defined(HbPlatform_OS_Windows)
+#if HbPlatform_OS_Windows
 #include "HbText.h"
 #include <process.h>
 #include <Windows.h>

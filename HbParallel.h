@@ -7,7 +7,7 @@
 
 #define HbParallel_Thread_MaxNameLength 15
 
-#if defined(HbPlatform_OS_Windows)
+#if HbPlatform_OS_Windows
 /**************************************************
  * Windows and Visual C parallelization primitives
  **************************************************/
