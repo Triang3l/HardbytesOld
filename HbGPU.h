@@ -168,8 +168,22 @@ typedef enum HbGPU_Image_Dimensions {
 	HbGPU_Image_Dimensions_CubeArray,
 	HbGPU_Image_Dimensions_3D,
 } HbGPU_Image_Dimensions;
+HbForceInline HbBool HbGPU_Image_Dimensions_AreArray(HbGPU_Image_Dimensions dimensions) {
+	return dimensions == HbGPU_Image_Dimensions_1DArray || dimensions == HbGPU_Image_Dimensions_2DArray ||
+			dimensions == HbGPU_Image_Dimensions_CubeArray;
+}
+HbForceInline HbBool HbGPU_Image_Dimensions_Are1D(HbGPU_Image_Dimensions dimensions) {
+	return dimensions == HbGPU_Image_Dimensions_1D || dimensions == HbGPU_Image_Dimensions_1DArray;
+}
+HbForceInline HbBool HbGPU_Image_Dimensions_Are2D(HbGPU_Image_Dimensions dimensions) {
+	return dimensions == HbGPU_Image_Dimensions_2D || dimensions == HbGPU_Image_Dimensions_2DArray;
+}
+HbForceInline HbBool HbGPU_Image_Dimensions_AreCube(HbGPU_Image_Dimensions dimensions) {
+	return dimensions == HbGPU_Image_Dimensions_Cube || dimensions == HbGPU_Image_Dimensions_CubeArray;
+}
 
-// Limits, based on the targeted D3D feature level 11_0, to prevent overflows (in file loading, for instance).
+// Limits, based on the targeted D3D feature level 11_0, to prevent overflows (in file loading, for instance),
+// and also for use in bitfields.
 enum {
 	HbGPU_Image_MaxSize1D2DLog2 = 14,
 	HbGPU_Image_MaxSize1D2D = 1 << HbGPU_Image_MaxSize1D2DLog2,
@@ -178,6 +192,7 @@ enum {
 	HbGPU_Image_MaxLayersLog2 = 11,
 	HbGPU_Image_MaxLayers = 1 << HbGPU_Image_MaxLayersLog2,
 	HbGPU_Image_MaxLayersCube = HbGPU_Image_MaxLayers / 6,
+	HbGPU_Image_MaxSamplesLog2 = 4,
 };
 
 typedef uint32_t HbGPU_Image_UsageOptions;
@@ -230,9 +245,43 @@ enum {
 	HbGPU_Image_Usage_CrossQueue = HbGPU_Image_Usage_Present << 1,
 };
 
+typedef union HbGPU_Image_ClearValue {
+	float color[4];
+	struct {
+		float depth;
+		uint8_t stencil;
+	} depthStencil;
+} HbGPU_Image_ClearValue;
+
+typedef struct HbGPU_Image_Slice {
+	uint32_t mip : 5;
+	uint32_t cubeSide : 3;
+	uint32_t layer : HbGPU_Image_MaxLayersLog2;
+	uint32_t stencil : 1;
+} HbGPU_Image_Slice;
+
 // Assumes VALID image->info!
-HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name,
-		HbGPU_Device * device, HbGPU_Image_Usage initialUsage);
+HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue);
 void HbGPU_Image_Destroy(HbGPU_Image * image);
+
+/************************
+ * Render target storage
+ ************************/
+
+typedef struct HbGPU_RTStore {
+	HbGPU_Device * device;
+	HbBool isDepth;
+	#if HbGPU_Implementation_D3D
+	ID3D12DescriptorHeap * d3dHeap;
+	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapStartHandle;
+	#endif
+} HbGPU_RTStore;
+
+HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, char const * name, HbGPU_Device * device, HbBool isDepth, uint32_t rtCount);
+void HbGPU_RTStore_Destroy(HbGPU_RTStore * store);
+void HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice, uint32_t zOf3D);
+void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice,
+		HbBool readOnlyDepth, HbBool readOnlyStencil);
 
 #endif

@@ -350,4 +350,144 @@ void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t wri
 	ID3D12Resource_Unmap(buffer->d3dResource, 0, &writeRange);
 }
 
+/************************
+ * Render target storage
+ ************************/
+
+HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, char const * name, HbGPU_Device * device, HbBool isDepth, uint32_t rtCount) {
+	store->device = device;
+	store->isDepth = isDepth;
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {
+		.Type = isDepth ? D3D12_DESCRIPTOR_HEAP_TYPE_DSV : D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+		.NumDescriptors = rtCount,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+		.NodeMask = 0,
+	};
+	if (FAILED(ID3D12Device_CreateDescriptorHeap(device->d3dDevice, &heapDesc, &IID_ID3D12DescriptorHeap, &store->d3dHeap))) {
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(store->d3dHeap, store->d3dHeap->lpVtbl->SetName, name);
+	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
+			store->d3dHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
+					store->d3dHeap, &store->d3dHeapStartHandle);
+	return HbTrue;
+}
+
+void HbGPU_RTStore_Destroy(HbGPU_RTStore * store) {
+	ID3D12DescriptorHeap_Release(store->d3dHeap);
+}
+
+void HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice, uint32_t zOf3D) {
+	if (HbGPU_Image_Format_IsDepth(image->info.format)) {
+		return;
+	}
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
+	rtvDesc.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
+	switch (image->info.dimensions) {
+	case HbGPU_Image_Dimensions_1D:
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
+		rtvDesc.Texture1D.MipSlice = slice.mip;
+		break;
+	case HbGPU_Image_Dimensions_1DArray:
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1DARRAY;
+		rtvDesc.Texture1DArray.MipSlice = slice.mip;
+		rtvDesc.Texture1DArray.FirstArraySlice = slice.layer;
+		rtvDesc.Texture1DArray.ArraySize = 1;
+		break;
+	case HbGPU_Image_Dimensions_2D:
+		if (image->info.samplesLog2 > 0) {
+			rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
+		} else {
+			rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+			rtvDesc.Texture2D.MipSlice = slice.mip;
+			rtvDesc.Texture2D.PlaneSlice = 0;
+		}
+		break;
+	case HbGPU_Image_Dimensions_2DArray:
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+		rtvDesc.Texture2DArray.MipSlice = slice.mip;
+		rtvDesc.Texture2DArray.FirstArraySlice = slice.layer;
+		rtvDesc.Texture2DArray.ArraySize = 1;
+		rtvDesc.Texture2DArray.PlaneSlice = 0;
+		break;
+	case HbGPU_Image_Dimensions_Cube:
+	case HbGPU_Image_Dimensions_CubeArray:
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+		rtvDesc.Texture2DArray.MipSlice = slice.mip;
+		rtvDesc.Texture2DArray.FirstArraySlice = slice.layer * 6 + slice.cubeSide;
+		rtvDesc.Texture2DArray.ArraySize = 1;
+		rtvDesc.Texture2DArray.PlaneSlice = 0;
+		break;
+	case HbGPU_Image_Dimensions_3D:
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
+		rtvDesc.Texture3D.MipSlice = slice.mip;
+		rtvDesc.Texture3D.FirstWSlice = zOf3D;
+		rtvDesc.Texture3D.WSize = 1;
+		break;
+	default:
+		return;
+	}
+	ID3D12Device * d3dDevice = store->device->d3dDevice;
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = {
+		.ptr = store->d3dHeapStartHandle.ptr + rtIndex * store->device->d3dRTVDescriptorSize,
+	};
+	ID3D12Device_CreateRenderTargetView(d3dDevice, image->d3dResource, &rtvDesc, handle);
+}
+
+void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice,
+		HbBool readOnlyDepth, HbBool readOnlyStencil) {
+	if (!HbGPU_Image_Format_IsDepth(image->info.format)) {
+		return;
+	}
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
+	dsvDesc.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
+	switch (image->info.dimensions) {
+	case HbGPU_Image_Dimensions_1D:
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1D;
+		dsvDesc.Texture1D.MipSlice = slice.mip;
+		break;
+	case HbGPU_Image_Dimensions_1DArray:
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1DARRAY;
+		dsvDesc.Texture1DArray.MipSlice = slice.mip;
+		dsvDesc.Texture1DArray.FirstArraySlice = slice.layer;
+		dsvDesc.Texture1DArray.ArraySize = 1;
+		break;
+	case HbGPU_Image_Dimensions_2D:
+		if (image->info.samplesLog2 > 0) {
+			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
+		} else {
+			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+			dsvDesc.Texture2D.MipSlice = slice.mip;
+		}
+		break;
+	case HbGPU_Image_Dimensions_2DArray:
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+		dsvDesc.Texture2DArray.MipSlice = slice.mip;
+		dsvDesc.Texture2DArray.FirstArraySlice = slice.layer;
+		dsvDesc.Texture2DArray.ArraySize = 1;
+		break;
+	case HbGPU_Image_Dimensions_Cube:
+	case HbGPU_Image_Dimensions_CubeArray:
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+		dsvDesc.Texture2DArray.MipSlice = slice.mip;
+		dsvDesc.Texture2DArray.FirstArraySlice = slice.layer * 6 + slice.cubeSide;
+		dsvDesc.Texture2DArray.ArraySize = 1;
+		break;
+	default:
+		return;
+	}
+	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+	if (readOnlyDepth) {
+		dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_DEPTH;
+	}
+	if (readOnlyStencil) {
+		dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_STENCIL;
+	}
+	ID3D12Device * d3dDevice = store->device->d3dDevice;
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = {
+		.ptr = store->d3dHeapStartHandle.ptr + rtIndex * store->device->d3dDSVDescriptorSize,
+	};
+	ID3D12Device_CreateDepthStencilView(d3dDevice, image->d3dResource, &dsvDesc, handle);
+}
+
 #endif

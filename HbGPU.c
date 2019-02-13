@@ -24,7 +24,7 @@ HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 		maxDepthOrLayers = HbGPU_Image_MaxLayers;
 		break;
 	case HbGPU_Image_Dimensions_2D:
-		maxSamplesLog2 = 4;
+		maxSamplesLog2 = HbGPU_Image_MaxSamplesLog2;
 		break;
 	case HbGPU_Image_Dimensions_2DArray:
 		maxDepthOrLayers = HbGPU_Image_MaxLayers;
@@ -45,7 +45,8 @@ HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 		maxSide = HbMaxU32(maxSide, info->depthOrLayers);
 	}
 	if (info->width > maxWidth || info->height > maxHeight || info->depthOrLayers > maxDepthOrLayers ||
-			info->mips > ((uint32_t) HbBit_HighestOneU32(maxSide) + 1) || info->samplesLog2 > maxSamplesLog2) {
+			info->mips > ((uint32_t) HbBit_HighestOneU32(maxSide) + 1) || info->samplesLog2 > maxSamplesLog2 ||
+			(info->samplesLog2 > 0 && info->mips > 1)) {
 		return HbFalse;
 	}
 	return HbTrue;

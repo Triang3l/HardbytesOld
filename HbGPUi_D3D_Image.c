@@ -1,5 +1,6 @@
 #include "HbGPUi_D3D.h"
 #if HbGPU_Implementation_D3D
+#include "HbBit.h"
 #include "HbFeedback.h"
 
 DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format) {
@@ -64,7 +65,7 @@ void HbGPUi_D3D_Image_Info_ToResourceDesc(D3D12_RESOURCE_DESC * desc, HbGPU_Imag
 	desc->Width = info->width;
 	desc->Height = info->height;
 	desc->DepthOrArraySize = info->depthOrLayers;
-	if (info->dimensions == HbGPU_Image_Dimensions_Cube || info->dimensions == HbGPU_Image_Dimensions_CubeArray) {
+	if (HbGPU_Image_Dimensions_AreCube(info->dimensions)) {
 		desc->DepthOrArraySize *= 6;
 	}
 	desc->MipLevels = info->mips;
@@ -125,18 +126,48 @@ D3D12_RESOURCE_STATES HbGPUi_D3D_Image_Usage_ToStates(HbGPU_Image_Usage usage) {
 	return states;
 }
 
-HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name,
-		HbGPU_Device * device, HbGPU_Image_Usage initialUsage) {
+HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue) {
 	D3D12_HEAP_PROPERTIES heapProperties = { 0 };
 	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
 	D3D12_RESOURCE_DESC resourceDesc;
 	HbGPUi_D3D_Image_Info_ToResourceDesc(&resourceDesc, &image->info);
+	D3D12_CLEAR_VALUE d3dOptimizedClearValue;
+	if (optimalClearValue != HbNull) {
+		// In case the resource description has a typeless format.
+		d3dOptimizedClearValue.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
+		if (HbGPU_Image_Format_IsDepth(image->info.format)) {
+			d3dOptimizedClearValue.DepthStencil.Depth = optimalClearValue->depthStencil.depth;
+			d3dOptimizedClearValue.DepthStencil.Stencil = optimalClearValue->depthStencil.stencil;
+		} else {
+			d3dOptimizedClearValue.Color[0] = optimalClearValue->color[0];
+			d3dOptimizedClearValue.Color[1] = optimalClearValue->color[1];
+			d3dOptimizedClearValue.Color[2] = optimalClearValue->color[2];
+			d3dOptimizedClearValue.Color[3] = optimalClearValue->color[3];
+		}
+	}
 	if (FAILED(ID3D12Device_CreateCommittedResource(device->d3dDevice, &heapProperties, D3D12_HEAP_FLAG_NONE,
-			&resourceDesc, HbGPUi_D3D_Image_Usage_ToStates(initialUsage), HbNull, &IID_ID3D12Resource, &image->d3dResource))) {
+			&resourceDesc, HbGPUi_D3D_Image_Usage_ToStates(initialUsage),
+			optimalClearValue != HbNull ? &d3dOptimizedClearValue : HbNull, &IID_ID3D12Resource, &image->d3dResource))) {
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetObjectName(image->d3dResource, image->d3dResource->lpVtbl->SetName, name);
 	return HbTrue;
+}
+
+void HbGPUi_D3D_Image_WrapSwapChainBuffer(HbGPU_Image * image, HbTextU8 const * name,
+		ID3D12Resource * resource, HbGPU_Image_Format format) {
+	D3D12_RESOURCE_DESC resourceDesc;
+	((HbGPUi_D3D_ID3D12Resource_GetDesc) (resource->lpVtbl->GetDesc))(resource, &resourceDesc);
+	image->info.format = format;
+	image->info.dimensions = HbGPU_Image_Dimensions_2D;
+	image->info.width = (uint32_t) resourceDesc.Width;
+	image->info.height = resourceDesc.Height;
+	image->info.depthOrLayers = 1;
+	image->info.mips = 1;
+	image->info.samplesLog2 = (uint32_t) HbBit_HighestOneU32(resourceDesc.SampleDesc.Count);
+	image->info.usageOptions = HbGPU_Image_UsageOptions_ColorRenderable;
+	image->d3dResource = resource;
 }
 
 void HbGPU_Image_Destroy(HbGPU_Image * image) {

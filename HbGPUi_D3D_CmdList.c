@@ -25,8 +25,6 @@ HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_
 		ID3D12CommandAllocator_Release(cmdList->d3dCommandAllocator);
 		return HbFalse;
 	}
-	HbGPUi_D3D_SetSubObjectName(cmdList->d3dSubmissionCommandList,
-			cmdList->d3dSubmissionCommandList->lpVtbl->SetName, name, "d3dSubmissionCommandList");
 	if (FAILED(ID3D12CommandList_QueryInterface(cmdList->d3dSubmissionCommandList,
 			&IID_ID3D12GraphicsCommandList, &cmdList->d3dGraphicsCommandList))) {
 		ID3D12CommandList_Release(cmdList->d3dSubmissionCommandList);
