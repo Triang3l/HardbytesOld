@@ -12,6 +12,8 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format) {
 		[HbGPU_Image_Format_8_8_RG_UNorm] = DXGI_FORMAT_R8G8_UNORM,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = DXGI_FORMAT_R8G8B8A8_UNORM,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+		[HbGPU_Image_Format_32_UInt] = DXGI_FORMAT_R32_UINT,
+		[HbGPU_Image_Format_32_Float] = DXGI_FORMAT_R32_FLOAT,
 		[HbGPU_Image_Format_D32] = DXGI_FORMAT_D32_FLOAT,
 		[HbGPU_Image_Format_D32_S8] = DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
 	};
@@ -29,6 +31,8 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTypeless(HbGPU_Image_Format format) {
 		[HbGPU_Image_Format_8_8_RG_UNorm] = DXGI_FORMAT_R8G8_TYPELESS,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = DXGI_FORMAT_R8G8B8A8_TYPELESS,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = DXGI_FORMAT_R8G8B8A8_TYPELESS,
+		[HbGPU_Image_Format_32_UInt] = DXGI_FORMAT_R32_TYPELESS,
+		[HbGPU_Image_Format_32_Float] = DXGI_FORMAT_R32_TYPELESS,
 		[HbGPU_Image_Format_D32] = DXGI_FORMAT_R32_TYPELESS,
 		[HbGPU_Image_Format_D32_S8] = DXGI_FORMAT_R32G8X24_TYPELESS,
 	};

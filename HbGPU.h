@@ -107,9 +107,9 @@ enum {
 	HbGPU_Buffer_Usage_Read_Vertices = 1,
 	HbGPU_Buffer_Usage_Read_Constants = HbGPU_Buffer_Usage_Read_Vertices << 1,
 	HbGPU_Buffer_Usage_Read_Indices = HbGPU_Buffer_Usage_Read_Constants << 1,
-	HbGPU_Buffer_Usage_Read_StructuresNonPS = HbGPU_Buffer_Usage_Read_Indices << 1,
-	HbGPU_Buffer_Usage_Read_StructuresPS = HbGPU_Buffer_Usage_Read_StructuresNonPS << 1,
-	HbGPU_Buffer_Usage_Read_CopySource = HbGPU_Buffer_Usage_Read_StructuresPS << 1,
+	HbGPU_Buffer_Usage_Read_ResourceNonPS = HbGPU_Buffer_Usage_Read_Indices << 1,
+	HbGPU_Buffer_Usage_Read_ResourcePS = HbGPU_Buffer_Usage_Read_ResourceNonPS << 1,
+	HbGPU_Buffer_Usage_Read_CopySource = HbGPU_Buffer_Usage_Read_ResourcePS << 1,
 
 	HbGPU_Buffer_Usage_ShaderEdit = HbGPU_Buffer_Usage_Read_CopySource << 1,
 	HbGPU_Buffer_Usage_CopyTarget = HbGPU_Buffer_Usage_ShaderEdit << 1,
@@ -119,11 +119,15 @@ enum {
 	HbGPU_Buffer_Usage_CPUToGPU = HbGPU_Buffer_Usage_CrossQueue << 1,
 };
 
+// Nvidia (and Direct3D 12) requirement.
+#define HbGPU_Buffer_ConstantsAlignment 256
+
 typedef struct HbGPU_Buffer {
 	HbGPU_Buffer_Access access;
 	uint32_t size;
 	#if HbGPU_Implementation_D3D
 	ID3D12Resource * d3dResource;
+	D3D12_GPU_VIRTUAL_ADDRESS d3dGPUAddress;
 	#endif
 } HbGPU_Buffer;
 
@@ -143,7 +147,9 @@ typedef enum HbGPU_Image_Format {
 		HbGPU_Image_Format_8_8_RG_UNorm,
 		HbGPU_Image_Format_8_8_8_8_RGBA_UNorm,
 		HbGPU_Image_Format_8_8_8_8_RGBA_sRGB,
-	HbGPU_Image_Format_RawEnd = HbGPU_Image_Format_8_8_8_8_RGBA_sRGB,
+		HbGPU_Image_Format_32_UInt,
+		HbGPU_Image_Format_32_Float,
+	HbGPU_Image_Format_RawEnd = HbGPU_Image_Format_32_Float,
 	HbGPU_Image_Format_DepthStart,
 		HbGPU_Image_Format_D32 = HbGPU_Image_Format_DepthStart,
 		HbGPU_Image_Format_DepthAndStencilStart,
@@ -158,6 +164,8 @@ HbForceInline HbBool HbGPU_Image_Format_IsDepth(HbGPU_Image_Format format) {
 HbForceInline HbBool HbGPU_Image_Format_HasStencil(HbGPU_Image_Format format) {
 	return format >= HbGPU_Image_Format_DepthAndStencilStart && format <= HbGPU_Image_Format_DepthAndStencilEnd;
 }
+// Element is either a texel (for uncompressed formats) or a block (for compressed formats).
+uint32_t HbGPU_Image_Format_ElementSize(HbGPU_Image_Format format);
 
 typedef enum HbGPU_Image_Dimensions {
 	HbGPU_Image_Dimensions_1D,
@@ -211,8 +219,8 @@ typedef struct HbGPU_Image_Info {
 	uint32_t width;
 	uint32_t height; // Must be 1 for 1D.
 	uint32_t depthOrLayers; // Must be 1 for non-arrays and non-3D.
-	uint32_t mips; // Must be at least 1.
-	uint32_t samplesLog2;
+	uint32_t mips; // Must be at least 1, mips are not allowed for 1D (Metal restriction) and multisampled images.
+	uint32_t samplesLog2; // For 2D non-arrays only - in other cases, only 0 is allowed.
 	HbGPU_Image_UsageOptions usageOptions;
 } HbGPU_Image_Info;
 
@@ -265,6 +273,34 @@ HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGP
 		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue);
 void HbGPU_Image_Destroy(HbGPU_Image * image);
 
+/*******************************************************
+ * Storage of binding descriptors of buffers and images
+ *******************************************************/
+
+typedef struct HbGPU_HandleStore {
+	HbGPU_Device * device;
+	#if HbGPU_Implementation_D3D
+	ID3D12DescriptorHeap * d3dHeap;
+	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapCPUStart;
+	D3D12_GPU_DESCRIPTOR_HANDLE d3dHeapGPUStart;
+	#endif
+} HbGPU_HandleStore;
+
+HbBool HbGPU_HandleStore_Init(HbGPU_HandleStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t handleCount);
+void HbGPU_HandleStore_Destroy(HbGPU_HandleStore * store);
+void HbGPU_HandleStore_SetConstantBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, uint32_t offset, uint32_t size);
+void HbGPU_HandleStore_SetTexelResourceBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, HbGPU_Image_Format format, uint32_t offsetInTexels, uint32_t texelCount);
+void HbGPU_HandleStore_SetStructResourceBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, uint32_t structSize, uint32_t offsetInStructs, uint32_t structCount);
+void HbGPU_HandleStore_SetEditBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, HbGPU_Image_Format format, uint32_t offsetInTexels, uint32_t texelCount);
+void HbGPU_HandleStore_SetTexture(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image * image, HbBool stencil);
+void HbGPU_HandleStore_SetNullTexture(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image_Dimensions dimensions, HbBool multisample);
+// The implementation may ignore the specified mip level if shaders can access all mips.
+void HbGPU_HandleStore_SetEditImage(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image * image, uint32_t mip);
+
 /************************
  * Render target storage
  ************************/
@@ -274,7 +310,7 @@ typedef struct HbGPU_RTStore {
 	HbBool isDepth;
 	#if HbGPU_Implementation_D3D
 	ID3D12DescriptorHeap * d3dHeap;
-	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapStartHandle;
+	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapStart;
 	#endif
 } HbGPU_RTStore;
 

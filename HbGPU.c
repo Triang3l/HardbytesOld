@@ -1,5 +1,25 @@
 #include "HbBit.h"
+#include "HbFeedback.h"
 #include "HbGPU.h"
+
+uint32_t HbGPU_Image_Format_ElementSize(HbGPU_Image_Format format) {
+	if (format >= HbGPU_Image_Format_FormatCount) {
+		return 0;
+	}
+	static const uint32_t sizes[] = {
+		[HbGPU_Image_Format_8_R_UNorm] = 1,
+		[HbGPU_Image_Format_8_8_RG_UNorm] = 2,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = 4,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = 4,
+		[HbGPU_Image_Format_32_UInt] = 4,
+		[HbGPU_Image_Format_32_Float] = 4,
+		[HbGPU_Image_Format_D32] = 4,
+		[HbGPU_Image_Format_D32_S8] = 8,
+	};
+	HbFeedback_StaticAssert(HbArrayLength(sizes) == HbGPU_Image_Format_FormatCount,
+			"All known image formats must have sizes defined in HbGPU_Image_Format_ElementSize.");
+	return sizes[(uint32_t) format];
+}
 
 HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 	info->width = HbMaxU32(info->width, 1);
@@ -44,9 +64,15 @@ HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 	if (info->dimensions == HbGPU_Image_Dimensions_3D) {
 		maxSide = HbMaxU32(maxSide, info->depthOrLayers);
 	}
+	uint32_t maxMips;
+	if (HbGPU_Image_Dimensions_Are1D(info->dimensions) || info->samplesLog2 > 0) {
+		// For 1D it's Metal restriction, for multisampled it's Direct3D restriction.
+		maxMips = 1;
+	} else {
+		maxMips = (uint32_t) HbBit_HighestOneU32(maxSide) + 1;
+	}
 	if (info->width > maxWidth || info->height > maxHeight || info->depthOrLayers > maxDepthOrLayers ||
-			info->mips > ((uint32_t) HbBit_HighestOneU32(maxSide) + 1) || info->samplesLog2 > maxSamplesLog2 ||
-			(info->samplesLog2 > 0 && info->mips > 1)) {
+			info->mips > maxMips || info->samplesLog2 > maxSamplesLog2) {
 		return HbFalse;
 	}
 	return HbTrue;

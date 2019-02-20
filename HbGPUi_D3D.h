@@ -42,5 +42,18 @@ inline uint32_t HbGPUi_D3D_Image_Slice_ToSubresource(HbGPU_Image_Info const * in
 void HbGPUi_D3D_Image_WrapSwapChainBuffer(HbGPU_Image * image, HbTextU8 const * name,
 		ID3D12Resource * resource, HbGPU_Image_Format format);
 
+HbForceInline D3D12_CPU_DESCRIPTOR_HANDLE HbGPUi_D3D_HandleStore_GetCPUHandle(HbGPU_HandleStore * store, uint32_t index) {
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = {
+		.ptr = store->d3dHeapCPUStart.ptr + store->device->d3dViewDescriptorSize * index,
+	};
+	return handle;
+}
+HbForceInline D3D12_GPU_DESCRIPTOR_HANDLE HbGPUi_D3D_HandleStore_GetGPUHandle(HbGPU_HandleStore * store, uint32_t index) {
+	D3D12_GPU_DESCRIPTOR_HANDLE handle = {
+		.ptr = store->d3dHeapGPUStart.ptr + store->device->d3dViewDescriptorSize * index,
+	};
+	return handle;
+}
+
 #endif
 #endif

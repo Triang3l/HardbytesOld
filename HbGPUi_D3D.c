@@ -273,10 +273,10 @@ D3D12_RESOURCE_STATES HbGPUi_D3D_Buffer_Usage_ToStates(HbGPU_Buffer_Usage usage)
 	if (usage & HbGPU_Buffer_Usage_Read_Indices) {
 		states |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
 	}
-	if (usage & HbGPU_Buffer_Usage_Read_StructuresNonPS) {
+	if (usage & HbGPU_Buffer_Usage_Read_ResourceNonPS) {
 		states |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 	}
-	if (usage & HbGPU_Buffer_Usage_Read_StructuresPS) {
+	if (usage & HbGPU_Buffer_Usage_Read_ResourcePS) {
 		states |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	}
 	if (usage & HbGPU_Buffer_Usage_Read_CopySource) {
@@ -323,6 +323,7 @@ HbBool HbGPU_Buffer_Init(HbGPU_Buffer * buffer, HbTextU8 const * name, HbGPU_Dev
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetObjectName(buffer->d3dResource, buffer->d3dResource->lpVtbl->SetName, name);
+	buffer->d3dGPUAddress = ID3D12Resource_GetGPUVirtualAddress(buffer->d3dResource);
 	return HbTrue;
 }
 
@@ -369,7 +370,7 @@ HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, char const * name, HbGPU_Device
 	HbGPUi_D3D_SetObjectName(store->d3dHeap, store->d3dHeap->lpVtbl->SetName, name);
 	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
 			store->d3dHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
-					store->d3dHeap, &store->d3dHeapStartHandle);
+					store->d3dHeap, &store->d3dHeapStart);
 	return HbTrue;
 }
 
@@ -429,7 +430,7 @@ void HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image
 	}
 	ID3D12Device * d3dDevice = store->device->d3dDevice;
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = {
-		.ptr = store->d3dHeapStartHandle.ptr + rtIndex * store->device->d3dRTVDescriptorSize,
+		.ptr = store->d3dHeapStart.ptr + rtIndex * store->device->d3dRTVDescriptorSize,
 	};
 	ID3D12Device_CreateRenderTargetView(d3dDevice, image->d3dResource, &rtvDesc, handle);
 }
@@ -485,7 +486,7 @@ void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image
 	}
 	ID3D12Device * d3dDevice = store->device->d3dDevice;
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = {
-		.ptr = store->d3dHeapStartHandle.ptr + rtIndex * store->device->d3dDSVDescriptorSize,
+		.ptr = store->d3dHeapStart.ptr + rtIndex * store->device->d3dDSVDescriptorSize,
 	};
 	ID3D12Device_CreateDepthStencilView(d3dDevice, image->d3dResource, &dsvDesc, handle);
 }
