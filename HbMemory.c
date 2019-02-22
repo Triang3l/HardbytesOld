@@ -1,6 +1,11 @@
 #include "HbMemory.h"
+#include "HbBit.h"
 #include "HbFeedback.h"
 #include "HbText.h"
+
+/***************************************
+ * Tag-based memory allocation tracking
+ ***************************************/
 
 static HbParallel_Mutex HbMemoryi_TagListMutex;
 HbMemory_Tag * HbMemoryi_TagFirst, * HbMemoryi_TagLast;
@@ -258,4 +263,108 @@ void HbMemory_Free(void * memory) {
 	HbParallel_Mutex_Unlock(&tag->mutex);
 
 	free(allocation);
+}
+
+/*********************************
+ * Power of two (buddy) allocator
+ *********************************/
+
+void HbMemory_PO2Alloc_Init(HbMemory_PO2Alloc * allocator, HbMemory_Tag * tag,
+		uint32_t largestNodeSizeLog2, uint32_t smallestNodeSizeLog2) {
+	if (smallestNodeSizeLog2 > largestNodeSizeLog2) {
+		HbFeedback_Crash("HbMemory_PO2Alloc_Init", "Requested smallest node size (log2 %u) larger than the largest (log2 %u).",
+				smallestNodeSizeLog2, largestNodeSizeLog2);
+	}
+	if (largestNodeSizeLog2 > 31) {
+		// Too large indices, can't return them from Alloc and take them in Free correctly
+		// (the full range plus one, for zero-size allocations, is needed).
+		HbFeedback_Crash("HbMemory_PO2Alloc_Init", "Requested too many bits for indices (%u, larger than 31).", largestNodeSizeLog2);
+	}
+	uint32_t deepestLevel = largestNodeSizeLog2 - smallestNodeSizeLog2;
+	if (deepestLevel >= HbMemoryi_PO2Alloc_MaxLevels) {
+		HbFeedback_Crash("HbMemory_PO2Alloc_Init", "Too many levels of allocations requested (%u, larger than %u).",
+				deepestLevel + 1, HbMemoryi_PO2Alloc_MaxLevels);
+	}
+	allocator->deepestLevel = deepestLevel;
+	allocator->smallestNodeSizeLog2 = smallestNodeSizeLog2;
+
+	// Initialize all nodes to zero, with the exception of the top one (for the first allocation) -
+	// it must be free (since allocating requires at least one free node on the needed level or above it).
+	allocator->firstFree[0] = 0;
+	memset(allocator->firstFree + 1, UINT8_MAX, sizeof(allocator->firstFree) - sizeof(allocator->firstFree[0]));
+	size_t nodesSize = ((1u << (allocator->deepestLevel + 1)) - 1) * sizeof(HbMemoryi_PO2Alloc_Node);
+	HbMemoryi_PO2Alloc_Node * nodes = HbMemory_Alloc(tag, nodesSize, HbFalse);
+	allocator->nodes = nodes;
+	nodes[0].type = HbMemoryi_PO2Alloc_Node_Type_Free;
+	nodes[0].previousFreeOnLevel = nodes[0].nextFreeOnLevel = -1;
+	memset(nodes + 1, 0, nodesSize - sizeof(HbMemoryi_PO2Alloc_Node));
+}
+
+void HbMemory_PO2Alloc_Destroy(HbMemory_PO2Alloc * allocator) {
+	HbMemory_Free(allocator->nodes);
+}
+
+HbForceInline HbMemoryi_PO2Alloc_Node * HbMemoryi_PO2Alloc_NodeOnLevel(
+		HbMemory_PO2Alloc * allocator, uint32_t level, uint32_t nodeOnLevelIndex) {
+	return &allocator->nodes[((1u << level) - 1) + nodeOnLevelIndex];
+}
+
+uint32_t HbMemory_PO2Alloc_TryAlloc(HbMemory_PO2Alloc * allocator, uint32_t count) {
+	uint32_t maxSmallestNodes = 1u << allocator->deepestLevel;
+	if (count == 0) {
+		// Return a special (valid) value for zero-size allocations.
+		return maxSmallestNodes << allocator->smallestNodeSizeLog2;
+	}
+	uint32_t countInSmallestNodes = (count + ((1u << allocator->smallestNodeSizeLog2) - 1)) >> allocator->smallestNodeSizeLog2;
+	if (countInSmallestNodes > maxSmallestNodes) {
+		return HbMemory_PO2Alloc_TryAllocFailed;
+	}
+
+	// Round up and get the level on which the allocation needs to take place.
+	uint32_t allocationLevel = allocator->deepestLevel - HbBit_Log2CeilU32(countInSmallestNodes);
+
+	// Find a free node on the needed level or above it (in this case, split nodes will be created).
+	uint32_t freeNodeLevel = allocationLevel;
+	for (;;) {
+		if (allocator->firstFree[freeNodeLevel] >= 0) {
+			break;
+		}
+		if (freeNodeLevel == 0) {
+			// No free memory.
+			return HbMemory_PO2Alloc_TryAllocFailed;
+		}
+		--freeNodeLevel;
+	}
+
+	uint32_t nodeOnLevelIndex = (uint32_t) allocator->firstFree[freeNodeLevel];
+	// Not free anymore, will change to data or split.
+	allocator->firstFree[freeNodeLevel] = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, nodeOnLevelIndex)->nextFreeOnLevel;
+	// If no free node directly on the needed level, bridge with split nodes - walk down the left side, mark right nodes as free.
+	while (freeNodeLevel < allocationLevel) {
+		HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, nodeOnLevelIndex)->type = HbMemoryi_PO2Alloc_Node_Type_Split;
+		// Go to the next level.
+		++freeNodeLevel;
+		nodeOnLevelIndex <<= 1;
+		// On the next level, mark the right node of the newly created split node as free, so it can be used later.
+		int32_t newSecondFree = allocator->firstFree[freeNodeLevel];
+		allocator->firstFree[freeNodeLevel] = nodeOnLevelIndex + 1;
+		if (newSecondFree >= 0) {
+			HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, newSecondFree)->previousFreeOnLevel = nodeOnLevelIndex + 1;
+		}
+		HbMemoryi_PO2Alloc_Node * newFreeNode = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, nodeOnLevelIndex + 1);
+		newFreeNode->type = HbMemoryi_PO2Alloc_Node_Type_Free;
+		newFreeNode->previousFreeOnLevel = -1;
+		newFreeNode->nextFreeOnLevel = newSecondFree;
+	}
+	HbMemoryi_PO2Alloc_NodeOnLevel(allocator, allocationLevel, nodeOnLevelIndex)->type = HbMemoryi_PO2Alloc_Node_Type_Data;
+
+	return nodeOnLevelIndex << (allocator->deepestLevel - allocationLevel + allocator->smallestNodeSizeLog2);
+}
+
+uint32_t HbMemory_PO2Alloc_Alloc(HbMemory_PO2Alloc * allocator, uint32_t count) {
+	uint32_t allocation = HbMemory_PO2Alloc_TryAlloc(allocator, count);
+	if (allocation == HbMemory_PO2Alloc_TryAllocFailed) {
+		HbFeedback_Crash("HbMemory_PO2Alloc_Alloc", "Failed to allocate %zu slots.", count);
+	}
+	return allocation;
 }
