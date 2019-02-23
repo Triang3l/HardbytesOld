@@ -74,7 +74,7 @@ typedef enum HbMemoryi_PO2Alloc_Node_Type {
 } HbMemoryi_PO2Alloc_Node_Type;
 
 typedef struct HbMemoryi_PO2Alloc_Node {
-	HbMemoryi_PO2Alloc_Node_Type type : 2;
+	uint32_t type : 2; // HbMemoryi_PO2Alloc_Node_Type as unsigned.
 	// Free list links, relative to the first node on the level.
 	int32_t previousFreeOnLevel : HbMemoryi_PO2Alloc_MaxLevels;
 	int32_t nextFreeOnLevel : HbMemoryi_PO2Alloc_MaxLevels;
@@ -98,5 +98,6 @@ void HbMemory_PO2Alloc_Destroy(HbMemory_PO2Alloc * allocator);
 #define HbMemory_PO2Alloc_TryAllocFailed UINT32_MAX
 uint32_t HbMemory_PO2Alloc_TryAlloc(HbMemory_PO2Alloc * allocator, uint32_t count);
 uint32_t HbMemory_PO2Alloc_Alloc(HbMemory_PO2Alloc * allocator, uint32_t count);
+void HbMemory_PO2Alloc_Free(HbMemory_PO2Alloc * allocator, uint32_t index);
 
 #endif

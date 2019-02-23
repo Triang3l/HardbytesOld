@@ -347,11 +347,11 @@ uint32_t HbMemory_PO2Alloc_TryAlloc(HbMemory_PO2Alloc * allocator, uint32_t coun
 		nodeOnLevelIndex <<= 1;
 		// On the next level, mark the right node of the newly created split node as free, so it can be used later.
 		int32_t newSecondFree = allocator->firstFree[freeNodeLevel];
-		allocator->firstFree[freeNodeLevel] = nodeOnLevelIndex + 1;
+		allocator->firstFree[freeNodeLevel] = nodeOnLevelIndex ^ 1;
 		if (newSecondFree >= 0) {
-			HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, newSecondFree)->previousFreeOnLevel = nodeOnLevelIndex + 1;
+			HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, newSecondFree)->previousFreeOnLevel = nodeOnLevelIndex ^ 1;
 		}
-		HbMemoryi_PO2Alloc_Node * newFreeNode = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, nodeOnLevelIndex + 1);
+		HbMemoryi_PO2Alloc_Node * newFreeNode = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, freeNodeLevel, nodeOnLevelIndex ^ 1);
 		newFreeNode->type = HbMemoryi_PO2Alloc_Node_Type_Free;
 		newFreeNode->previousFreeOnLevel = -1;
 		newFreeNode->nextFreeOnLevel = newSecondFree;
@@ -364,7 +364,87 @@ uint32_t HbMemory_PO2Alloc_TryAlloc(HbMemory_PO2Alloc * allocator, uint32_t coun
 uint32_t HbMemory_PO2Alloc_Alloc(HbMemory_PO2Alloc * allocator, uint32_t count) {
 	uint32_t allocation = HbMemory_PO2Alloc_TryAlloc(allocator, count);
 	if (allocation == HbMemory_PO2Alloc_TryAllocFailed) {
-		HbFeedback_Crash("HbMemory_PO2Alloc_Alloc", "Failed to allocate %zu slots.", count);
+		HbFeedback_Crash("HbMemory_PO2Alloc_Alloc", "Failed to allocate %u slots.", count);
 	}
 	return allocation;
+}
+
+void HbMemory_PO2Alloc_Free(HbMemory_PO2Alloc * allocator, uint32_t index) {
+	uint32_t indexInSmallestNodes = index >> allocator->smallestNodeSizeLog2;
+	if ((indexInSmallestNodes << allocator->smallestNodeSizeLog2) != index) {
+		HbFeedback_Crash("HbMemory_PO2Alloc_Free", "Unaligned index %u specified (smallest allocation has size %u).",
+				index, 1u << allocator->smallestNodeSizeLog2);
+	}
+	uint32_t maxSmallestNodes = 1u << allocator->deepestLevel;
+	if (indexInSmallestNodes >= maxSmallestNodes) {
+		if (indexInSmallestNodes == maxSmallestNodes) {
+			// Special value for zero-sized allocations.
+			return;
+		}
+		HbFeedback_Crash("HbMemory_PO2Alloc_Free", "Index %u is out of bounds (%u items can be allocated).",
+				index, maxSmallestNodes << allocator->smallestNodeSizeLog2);
+	}
+
+	// Get the level to start searching for the allocation from, based on alignment.
+	uint32_t level = 0;
+	if (indexInSmallestNodes != 0) {
+		level = allocator->deepestLevel - (uint32_t) HbBit_LowestOneU32(indexInSmallestNodes);
+	}
+	// Find the level on which the allocation happened.
+	uint32_t nodeOnLevelIndex = indexInSmallestNodes >> (allocator->deepestLevel - level);
+	for (;;) {
+		HbMemoryi_PO2Alloc_Node_Type nodeType = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, level, nodeOnLevelIndex)->type;
+		if (nodeType == HbMemoryi_PO2Alloc_Node_Type_Data) {
+			// Found an allocation with such index.
+			break;
+		}
+		// Go deeper if reached a split node, or fail if tried to free something totally invalid.
+		if (nodeType != HbMemoryi_PO2Alloc_Node_Type_Split || level >= allocator->deepestLevel) {
+			HbFeedback_Crash("HbMemory_PO2Alloc_Free", "Index %u not allocated with HbMemory_PO2Alloc_Alloc.", index);
+		}
+		++level;
+		nodeOnLevelIndex <<= 1;
+	}
+
+	// Recursively go up and mark nodes as free, merging split nodes with two free children into a single free node.
+	// The top level will get special treatment because it has no buddy and must have a free node if nothing is allocated.
+	while (level > 0) {
+		HbMemoryi_PO2Alloc_Node * node = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, level, nodeOnLevelIndex);
+		HbMemoryi_PO2Alloc_Node * buddy = HbMemoryi_PO2Alloc_NodeOnLevel(allocator, level, nodeOnLevelIndex ^ 1);
+		if (buddy->type != HbMemoryi_PO2Alloc_Node_Type_Free) {
+			// Buddy is not free, so the parent node will still be a split node, just add the current one to the free list.
+			int32_t newSecondFree = allocator->firstFree[level];
+			allocator->firstFree[level] = nodeOnLevelIndex;
+			if (newSecondFree >= 0) {
+				HbMemoryi_PO2Alloc_NodeOnLevel(allocator, level, newSecondFree)->previousFreeOnLevel = nodeOnLevelIndex;
+			}
+			node->type = HbMemoryi_PO2Alloc_Node_Type_Free;
+			node->previousFreeOnLevel = -1;
+			node->nextFreeOnLevel = newSecondFree;
+			break;
+		}
+		// Two free nodes - destroy and join both so the range can be reused for larger allocations.
+		// Destroying a free node means unlinking it from the free list.
+		node->type = HbMemoryi_PO2Alloc_Node_Type_NonExistent;
+		buddy->type = HbMemoryi_PO2Alloc_Node_Type_NonExistent;
+		int32_t buddyPreviousFree = buddy->previousFreeOnLevel, buddyNextFree = buddy->nextFreeOnLevel;
+		if (buddyPreviousFree >= 0) {
+			HbMemoryi_PO2Alloc_NodeOnLevel(allocator, level, buddyPreviousFree)->nextFreeOnLevel = buddyNextFree;
+		} else {
+			allocator->firstFree[level] = buddyNextFree;
+		}
+		if (buddyNextFree >= 0) {
+			HbMemoryi_PO2Alloc_NodeOnLevel(allocator, level, buddyNextFree)->previousFreeOnLevel = buddyPreviousFree;
+		}
+		// The split node above will be freed or destroyed at the next iteration.
+		--level;
+		nodeOnLevelIndex >>= 1;
+	}
+	if (level == 0) {
+		// Destroying the last allocation - the top level must have a free node in this case.
+		HbMemoryi_PO2Alloc_Node * topNode = &allocator->nodes[0];
+		topNode->type = HbMemoryi_PO2Alloc_Node_Type_Free;
+		topNode->previousFreeOnLevel = topNode->nextFreeOnLevel = -1;
+		allocator->firstFree[0] = 0;
+	}
 }
