@@ -164,6 +164,9 @@ HbForceInline HbBool HbGPU_Image_Format_IsDepth(HbGPU_Image_Format format) {
 HbForceInline HbBool HbGPU_Image_Format_HasStencil(HbGPU_Image_Format format) {
 	return format >= HbGPU_Image_Format_DepthAndStencilStart && format <= HbGPU_Image_Format_DepthAndStencilEnd;
 }
+HbForceInline HbGPU_Image_Format HbGPU_Image_Format_ToLinear(HbGPU_Image_Format format) {
+	return format == HbGPU_Image_Format_8_8_8_8_RGBA_sRGB ? HbGPU_Image_Format_8_8_8_8_RGBA_UNorm : format;
+}
 // Element is either a texel (for uncompressed formats) or a block (for compressed formats).
 uint32_t HbGPU_Image_Format_ElementSize(HbGPU_Image_Format format);
 
@@ -305,6 +308,13 @@ void HbGPU_HandleStore_SetEditImage(HbGPU_HandleStore * store, uint32_t index, H
  * Render target storage
  ************************/
 
+// A bindable reference to a render target actually located in a store or some other place like a swap chain.
+typedef struct HbGPU_RTReference {
+	#if HbGPU_Implementation_D3D
+	D3D12_CPU_DESCRIPTOR_HANDLE d3dHandle;
+	#endif
+} HbGPU_RTReference;
+
 typedef struct HbGPU_RTStore {
 	HbGPU_Device * device;
 	HbBool isDepth;
@@ -314,10 +324,37 @@ typedef struct HbGPU_RTStore {
 	#endif
 } HbGPU_RTStore;
 
-HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, char const * name, HbGPU_Device * device, HbBool isDepth, uint32_t rtCount);
+HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, HbTextU8 const * name, HbGPU_Device * device, HbBool isDepth, uint32_t rtCount);
 void HbGPU_RTStore_Destroy(HbGPU_RTStore * store);
-void HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice, uint32_t zOf3D);
-void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice,
-		HbBool readOnlyDepth, HbBool readOnlyStencil);
+HbBool HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex,
+		HbGPU_Image * image, HbGPU_Image_Slice slice, uint32_t zOf3D);
+HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
+		HbGPU_Image * image, HbGPU_Image_Slice slice, HbBool readOnlyDepth, HbBool readOnlyStencil);
+HbGPU_RTReference HbGPU_RTStore_GetRT(HbGPU_RTStore * store, uint32_t rtIndex);
+
+/**************************
+ * Presentation swap chain
+ **************************/
+
+typedef struct HbGPU_SwapChain_Target {
+	#if HbPlatform_OS_WindowsDesktop
+	HWND windowsHWnd;
+	#endif
+} HbGPU_SwapChain_Target;
+
+typedef struct HbGPU_SwapChain {
+	HbGPU_Device * device;
+	uint32_t bufferCount;
+	HbGPU_Image images[3]; // May be modified during presentation (implementation-dependent).
+	#if HbGPU_Implementation_D3D
+	IDXGISwapChain3 * dxgiSwapChain;
+	ID3D12DescriptorHeap * d3dRTVHeap;
+	D3D12_CPU_DESCRIPTOR_HANDLE d3dRTVHeapStart;
+	#endif
+} HbGPU_SwapChain;
+
+HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered);
+void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain);
 
 #endif

@@ -1,5 +1,6 @@
 #include "HbGPUi_D3D.h"
 #if HbGPU_Implementation_D3D
+#include "HbBit.h"
 #include <dxgidebug.h>
 
 /****************
@@ -355,7 +356,7 @@ void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t wri
  * Render target storage
  ************************/
 
-HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, char const * name, HbGPU_Device * device, HbBool isDepth, uint32_t rtCount) {
+HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, HbTextU8 const * name, HbGPU_Device * device, HbBool isDepth, uint32_t rtCount) {
 	store->device = device;
 	store->isDepth = isDepth;
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {
@@ -378,9 +379,10 @@ void HbGPU_RTStore_Destroy(HbGPU_RTStore * store) {
 	ID3D12DescriptorHeap_Release(store->d3dHeap);
 }
 
-void HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice, uint32_t zOf3D) {
+HbBool HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex,
+		HbGPU_Image * image, HbGPU_Image_Slice slice, uint32_t zOf3D) {
 	if (HbGPU_Image_Format_IsDepth(image->info.format)) {
-		return;
+		return HbFalse;
 	}
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
 	rtvDesc.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
@@ -426,19 +428,20 @@ void HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image
 		rtvDesc.Texture3D.WSize = 1;
 		break;
 	default:
-		return;
+		return HbFalse;
 	}
 	ID3D12Device * d3dDevice = store->device->d3dDevice;
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = {
 		.ptr = store->d3dHeapStart.ptr + rtIndex * store->device->d3dRTVDescriptorSize,
 	};
 	ID3D12Device_CreateRenderTargetView(d3dDevice, image->d3dResource, &rtvDesc, handle);
+	return HbTrue;
 }
 
-void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image * image, HbGPU_Image_Slice slice,
-		HbBool readOnlyDepth, HbBool readOnlyStencil) {
+HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
+		HbGPU_Image * image, HbGPU_Image_Slice slice, HbBool readOnlyDepth, HbBool readOnlyStencil) {
 	if (!HbGPU_Image_Format_IsDepth(image->info.format)) {
-		return;
+		return HbFalse;
 	}
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 	dsvDesc.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
@@ -475,7 +478,7 @@ void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image
 		dsvDesc.Texture2DArray.ArraySize = 1;
 		break;
 	default:
-		return;
+		return HbFalse;
 	}
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 	if (readOnlyDepth) {
@@ -489,6 +492,117 @@ void HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex, HbGPU_Image
 		.ptr = store->d3dHeapStart.ptr + rtIndex * store->device->d3dDSVDescriptorSize,
 	};
 	ID3D12Device_CreateDepthStencilView(d3dDevice, image->d3dResource, &dsvDesc, handle);
+	return HbTrue;
+}
+
+HbGPU_RTReference HbGPU_RTStore_GetRT(HbGPU_RTStore * store, uint32_t rtIndex) {
+	uint32_t descriptorSize = store->isDepth ? store->device->d3dDSVDescriptorSize : store->device->d3dRTVDescriptorSize;
+	HbGPU_RTReference reference = {
+		.d3dHandle.ptr = store->d3dHeapStart.ptr + rtIndex * descriptorSize,
+	};
+	return reference;
+}
+
+/*************
+ * Swap chain
+ *************/
+
+HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered) {
+	chain->device = device;
+	uint32_t bufferCount = tripleBuffered ? 3 : 2;
+	bufferCount = tripleBuffered ? 3 : 2;
+	width = HbClampU32(width, 1, HbGPU_Image_MaxSize1D2D);
+	height = HbClampU32(height, 1, HbGPU_Image_MaxSize1D2D);
+	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {
+		.Width = width,
+		.Height = height,
+		.Format = HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format_ToLinear(format)),
+		.Stereo = FALSE,
+		.SampleDesc.Count = 1,
+		.SampleDesc.Quality = 0,
+		.BufferUsage = DXGI_USAGE_BACK_BUFFER,
+		.BufferCount = bufferCount,
+		.Scaling = DXGI_SCALING_STRETCH,
+		.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+		.AlphaMode = DXGI_ALPHA_MODE_IGNORE,
+		.Flags = 0,
+	};
+	IUnknown * commandQueue = (IUnknown *) device->d3dCommandQueues[HbGPU_CmdQueue_Graphics];
+	IDXGISwapChain1 * swapChain1;
+	#if HbPlatform_OS_WindowsDesktop
+	if (FAILED(IDXGIFactory2_CreateSwapChainForHwnd(HbGPUi_D3D_DXGIFactory,
+			commandQueue, target.windowsHWnd, &swapChainDesc, HbNull, HbNull, &swapChain1))) {
+		return HbFalse;
+	}
+	#else
+	#error No HbGPU_SwapChain_Init for the target application model.
+	#endif
+	if (FAILED(IDXGISwapChain1_QueryInterface(swapChain1, &IID_IDXGISwapChain3, &chain->dxgiSwapChain))) {
+		IDXGISwapChain1_Release(swapChain1);
+		return HbFalse;
+	}
+	IDXGISwapChain1_Release(swapChain1);
+	HbGPUi_D3D_SetDXGIObjectName(chain->dxgiSwapChain, chain->dxgiSwapChain->lpVtbl->SetPrivateData, name);
+	ID3D12Device * d3dDevice = device->d3dDevice;
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+		.NumDescriptors = bufferCount,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+		.NodeMask = 0,
+	};
+	if (FAILED(ID3D12Device_CreateDescriptorHeap(d3dDevice, &rtvHeapDesc, &IID_ID3D12DescriptorHeap, &chain->d3dRTVHeap))) {
+		IDXGISwapChain3_Release(chain->dxgiSwapChain);
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetSubObjectName(chain->d3dRTVHeap, chain->d3dRTVHeap->lpVtbl->SetName, name, "d3dRTVHeap");
+	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
+			chain->d3dRTVHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
+					chain->d3dRTVHeap, &chain->d3dRTVHeapStart);
+	HbTextU8 imageName[] = "images[0]";
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {
+		.Format = HbGPUi_D3D_Image_Format_ToTyped(format),
+		.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+		.Texture2D.MipSlice = 0,
+		.Texture2D.PlaneSlice = 0,
+	};
+	for (uint32_t bufferIndex = 0; bufferIndex < bufferCount; ++bufferIndex) {
+		HbGPU_Image * image = &chain->images[bufferIndex];
+		ID3D12Resource * imageResource;
+		if (FAILED(IDXGISwapChain3_GetBuffer(chain->dxgiSwapChain, bufferIndex, &IID_ID3D12Resource, &imageResource))) {
+			for (uint32_t releaseBufferIndex = 0; releaseBufferIndex < bufferIndex; ++releaseBufferIndex) {
+				ID3D12Resource * releaseImage = chain->images[releaseBufferIndex].d3dResource;
+				ID3D12Resource_Release(releaseImage);
+			}
+			ID3D12DescriptorHeap_Release(chain->d3dRTVHeap);
+			IDXGISwapChain3_Release(chain->dxgiSwapChain);
+			return HbFalse;
+		}
+		imageName[sizeof(imageName) - 3] = '0' + bufferIndex;
+		HbGPUi_D3D_SetSubObjectName(imageResource, imageResource->lpVtbl->SetName, name, imageName);
+		image->d3dResource = imageResource;
+		image->info.format = format;
+		image->info.dimensions = HbGPU_Image_Dimensions_2D;
+		image->info.width = width;
+		image->info.height = height;
+		image->info.depthOrLayers = 1;
+		image->info.mips = 1;
+		image->info.samplesLog2 = (uint32_t) HbBit_HighestOneU32(swapChainDesc.SampleDesc.Count);
+		image->info.usageOptions = HbGPU_Image_UsageOptions_ColorRenderable;
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = {
+			.ptr = chain->d3dRTVHeapStart.ptr + bufferIndex * device->d3dRTVDescriptorSize,
+		};
+		ID3D12Device_CreateRenderTargetView(d3dDevice, imageResource, &rtvDesc, rtvHandle);
+	}
+	return HbTrue;
+}
+
+void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain) {
+	for (uint32_t bufferIndex = 0; bufferIndex < chain->bufferCount; ++bufferIndex) {
+		ID3D12Resource_Release(chain->images[bufferIndex].d3dResource);
+	}
+	ID3D12DescriptorHeap_Release(chain->d3dRTVHeap);
+	IDXGISwapChain3_Release(chain->dxgiSwapChain);
 }
 
 #endif
