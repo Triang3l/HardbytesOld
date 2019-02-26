@@ -123,6 +123,9 @@ void HbGPU_Shutdown() {
 
 HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t deviceIndex,
 		HbBool needGraphicsQueue, HbBool needCopyQueue) {
+	// Create a tag for additional allocations.
+	device->d3dMemoryTag = HbMemory_Tag_Create("HbGPU_Device (D3D)");
+
 	// Make the index reference only supported adapters.
 	IDXGIAdapter1 * adapter = HbNull;
 	uint32_t adapterIndex = 0, supportedAdapterIndex = 0;
@@ -138,12 +141,14 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 		adapter = HbNull;
 	}
 	if (adapter == HbNull) {
+		HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 		return HbFalse;
 	}
 
 	// Query adapter interface version 3 for memory information access.
 	if (FAILED(IDXGIAdapter1_QueryInterface(adapter, &IID_IDXGIAdapter3, &device->dxgiAdapter))) {
 		IDXGIAdapter1_Release(adapter);
+		HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 		return HbFalse;
 	}
 	IDXGIAdapter1_Release(adapter); // Don't need version 1 anymore.
@@ -152,6 +157,7 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 	// Create the D3D device.
 	if (FAILED(D3D12CreateDevice((IUnknown *) device->dxgiAdapter, D3D_FEATURE_LEVEL_11_0, &IID_ID3D12Device, &device->d3dDevice))) {
 		IDXGIAdapter3_Release(device->dxgiAdapter);
+		HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetObjectName(device->d3dDevice, device->d3dDevice->lpVtbl->SetName, name);
@@ -169,6 +175,7 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 		if (FAILED(ID3D12Device_CreateCommandQueue(device->d3dDevice, &queueDesc, &IID_ID3D12CommandQueue, &graphicsQueue))) {
 			ID3D12Device_Release(device->d3dDevice);
 			IDXGIAdapter3_Release(device->dxgiAdapter);
+			HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 			return HbFalse;
 		}
 		device->d3dCommandQueues[HbGPU_CmdQueue_Graphics] = graphicsQueue;
@@ -183,6 +190,7 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 			}
 			ID3D12Device_Release(device->d3dDevice);
 			IDXGIAdapter3_Release(device->dxgiAdapter);
+			HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 			return HbFalse;
 		}
 		device->d3dCommandQueues[HbGPU_CmdQueue_Copy] = copyQueue;
@@ -207,6 +215,7 @@ void HbGPU_Device_Shutdown(HbGPU_Device * device) {
 	}
 	ID3D12Device_Release(device->d3dDevice);
 	IDXGIAdapter3_Release(device->dxgiAdapter);
+	HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 }
 
 /********
@@ -372,10 +381,16 @@ HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, HbTextU8 const * name, HbGPU_De
 	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
 			store->d3dHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
 					store->d3dHeap, &store->d3dHeapStart);
+	store->d3dResolveSources = HbMemory_TryAlloc(device->d3dMemoryTag, rtCount * sizeof(store->d3dResolveSources[0]), HbFalse);
+	if (store->d3dResolveSources == HbNull) {
+		ID3D12DescriptorHeap_Release(store->d3dHeap);
+		return HbFalse;
+	}
 	return HbTrue;
 }
 
 void HbGPU_RTStore_Destroy(HbGPU_RTStore * store) {
+	HbMemory_Free(store->d3dResolveSources);
 	ID3D12DescriptorHeap_Release(store->d3dHeap);
 }
 
@@ -386,6 +401,7 @@ HbBool HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex,
 	}
 	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc;
 	rtvDesc.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
+	ID3D12Resource * resolveSource = HbNull;
 	switch (image->info.dimensions) {
 	case HbGPU_Image_Dimensions_1D:
 		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
@@ -400,6 +416,7 @@ HbBool HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex,
 	case HbGPU_Image_Dimensions_2D:
 		if (image->info.samplesLog2 > 0) {
 			rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
+			resolveSource = image->d3dResource;
 		} else {
 			rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 			rtvDesc.Texture2D.MipSlice = slice.mip;
@@ -435,6 +452,7 @@ HbBool HbGPU_RTStore_SetColor(HbGPU_RTStore * store, uint32_t rtIndex,
 		.ptr = store->d3dHeapStart.ptr + rtIndex * store->device->d3dRTVDescriptorSize,
 	};
 	ID3D12Device_CreateRenderTargetView(d3dDevice, image->d3dResource, &rtvDesc, handle);
+	store->d3dResolveSources[rtIndex] = resolveSource;
 	return HbTrue;
 }
 
@@ -445,6 +463,7 @@ HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
 	}
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 	dsvDesc.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
+	ID3D12Resource * resolveSource = HbNull;
 	switch (image->info.dimensions) {
 	case HbGPU_Image_Dimensions_1D:
 		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1D;
@@ -459,6 +478,7 @@ HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
 	case HbGPU_Image_Dimensions_2D:
 		if (image->info.samplesLog2 > 0) {
 			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
+			resolveSource = image->d3dResource;
 		} else {
 			dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 			dsvDesc.Texture2D.MipSlice = slice.mip;
@@ -499,6 +519,7 @@ HbGPU_RTReference HbGPU_RTStore_GetRT(HbGPU_RTStore * store, uint32_t rtIndex) {
 	uint32_t descriptorSize = store->isDepth ? store->device->d3dDSVDescriptorSize : store->device->d3dRTVDescriptorSize;
 	HbGPU_RTReference reference = {
 		.d3dHandle.ptr = store->d3dHeapStart.ptr + rtIndex * descriptorSize,
+		.d3dResolveSource = store->d3dResolveSources[rtIndex],
 	};
 	return reference;
 }

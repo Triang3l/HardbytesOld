@@ -1,5 +1,6 @@
 #ifndef HbInclude_HbGPU
 #define HbInclude_HbGPU
+#include "HbMemory.h"
 #include "HbText.h"
 
 #if HbPlatform_OS_Windows
@@ -36,6 +37,7 @@ typedef enum HbGPU_CmdQueue {
 
 typedef struct HbGPU_Device {
 	#if HbGPU_Implementation_D3D
+	HbMemory_Tag * d3dMemoryTag;
 	IDXGIAdapter3 * dxgiAdapter;
 	ID3D12Device * d3dDevice;
 	ID3D12CommandQueue * d3dCommandQueues[HbGPU_CmdQueue_QueueCount];
@@ -70,25 +72,6 @@ void HbGPU_Fence_Destroy(HbGPU_Fence * fence);
 void HbGPU_Fence_Enqueue(HbGPU_Fence * fence);
 HbBool HbGPU_Fence_IsCrossed(HbGPU_Fence * fence);
 void HbGPU_Fence_Await(HbGPU_Fence * fence);
-
-/***************
- * Command list
- ***************/
-
-typedef struct HbGPU_CmdList {
-	HbGPU_CmdQueue queue;
-	#if HbGPU_Implementation_D3D
-	ID3D12CommandAllocator * d3dCommandAllocator;
-	ID3D12CommandList * d3dSubmissionCommandList;
-	ID3D12GraphicsCommandList * d3dGraphicsCommandList;
-	#endif
-} HbGPU_CmdList;
-
-HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue);
-void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
 
 /*********
  * Buffer
@@ -312,6 +295,7 @@ void HbGPU_HandleStore_SetEditImage(HbGPU_HandleStore * store, uint32_t index, H
 typedef struct HbGPU_RTReference {
 	#if HbGPU_Implementation_D3D
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dHandle;
+	ID3D12Resource * d3dResolveSource; // Null for non-MSAA RTs.
 	#endif
 } HbGPU_RTReference;
 
@@ -321,6 +305,7 @@ typedef struct HbGPU_RTStore {
 	#if HbGPU_Implementation_D3D
 	ID3D12DescriptorHeap * d3dHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapStart;
+	ID3D12Resource * * d3dResolveSources; // Null for non-MSAA RTs.
 	#endif
 } HbGPU_RTStore;
 
@@ -356,5 +341,24 @@ typedef struct HbGPU_SwapChain {
 HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered);
 void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain);
+
+/***************
+ * Command list
+ ***************/
+
+typedef struct HbGPU_CmdList {
+	HbGPU_CmdQueue queue;
+	#if HbGPU_Implementation_D3D
+	ID3D12CommandAllocator * d3dCommandAllocator;
+	ID3D12CommandList * d3dSubmissionCommandList;
+	ID3D12GraphicsCommandList * d3dGraphicsCommandList;
+	#endif
+} HbGPU_CmdList;
+
+HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue);
+void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
 
 #endif
