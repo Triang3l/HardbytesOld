@@ -361,6 +361,113 @@ void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t wri
 	ID3D12Resource_Unmap(buffer->d3dResource, 0, &writeRange);
 }
 
+/**********
+ * Sampler
+ **********/
+
+HbBool HbGPU_SamplerStore_Init(HbGPU_SamplerStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t samplerCount) {
+	store->device = device;
+	store->infos = HbMemory_TryAlloc(device->d3dMemoryTag, samplerCount * sizeof(store->infos[0]), HbFalse);
+	if (store->infos == HbNull) {
+		return HbFalse;
+	}
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+		.NumDescriptors = samplerCount,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+		.NodeMask = 0,
+	};
+	if (FAILED(ID3D12Device_CreateDescriptorHeap(device->d3dDevice, &heapDesc, &IID_ID3D12DescriptorHeap, &store->d3dHeap))) {
+		HbMemory_Free(store->infos);
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(store->d3dHeap, store->d3dHeap->lpVtbl->SetName, name);
+	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
+			store->d3dHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
+					store->d3dHeap, &store->d3dHeapCPUStart);
+	((HbGPUi_D3D_ID3D12DescriptorHeap_GetGPUDescriptorHandleForHeapStart)
+			store->d3dHeap->lpVtbl->GetGPUDescriptorHandleForHeapStart)(
+					store->d3dHeap, &store->d3dHeapGPUStart);
+	return HbTrue;
+}
+
+void HbGPU_SamplerStore_Destroy(HbGPU_SamplerStore * store) {
+	ID3D12DescriptorHeap_Release(store->d3dHeap);
+	HbMemory_Free(store->infos);
+}
+
+static D3D12_FILTER HbGPUi_D3D_Sampler_Filter_ToD3D(HbGPU_Sampler_Filter filter, HbBool isComparison, UINT * maxAnistoropyOut) {
+	// Anisotropic implies linear min/mag/mip.
+	D3D12_FILTER_TYPE minMagType = filter == HbGPU_Sampler_Filter_Point ? D3D12_FILTER_TYPE_POINT : D3D12_FILTER_TYPE_LINEAR;
+	D3D12_FILTER d3dFilter = D3D12_ENCODE_BASIC_FILTER(minMagType, minMagType,
+			(filter == HbGPU_Sampler_Filter_Point || filter == HbGPU_Sampler_Filter_Bilinear) ? D3D12_FILTER_TYPE_POINT : D3D12_FILTER_TYPE_LINEAR,
+			isComparison ? D3D12_FILTER_REDUCTION_TYPE_COMPARISON : D3D12_FILTER_REDUCTION_TYPE_STANDARD);
+	if (filter >= HbGPU_Sampler_Filter_Aniso2x) {
+		d3dFilter |= D3D12_ANISOTROPIC_FILTERING_BIT;
+		*maxAnistoropyOut = 2 << (filter - HbGPU_Sampler_Filter_Aniso2x);
+	} else {
+		*maxAnistoropyOut = 1;
+	}
+	return d3dFilter;
+}
+
+static inline D3D12_TEXTURE_ADDRESS_MODE HbGPUi_D3D_Sampler_Wrap_ToD3D(HbGPU_Sampler_Wrap wrap) {
+	switch (wrap) {
+	case HbGPU_Sampler_Wrap_Clamp:
+		return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	case HbGPU_Sampler_Wrap_MirrorRepeat:
+		return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+	case HbGPU_Sampler_Wrap_MirrorClamp:
+		return D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
+	case HbGPU_Sampler_Wrap_Border:
+		return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	default:
+		break;
+	}
+	return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+}
+
+HbBool HbGPU_SamplerStore_CreateSampler(HbGPU_SamplerStore * store, uint32_t index, HbGPU_Sampler_Info info) {
+	D3D12_SAMPLER_DESC samplerDesc;
+	samplerDesc.Filter = HbGPUi_D3D_Sampler_Filter_ToD3D(info.filter, info.isComparison, &samplerDesc.MaxAnisotropy);
+	samplerDesc.AddressU = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapS);
+	samplerDesc.AddressV = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapT);
+	samplerDesc.AddressW = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapR);
+	samplerDesc.MipLODBias = (float) info.mipBias;
+	samplerDesc.ComparisonFunc = (D3D12_COMPARISON_FUNC) (D3D12_COMPARISON_FUNC_NEVER + info.comparison);
+	samplerDesc.BorderColor[0] = samplerDesc.BorderColor[1] = samplerDesc.BorderColor[2] =
+			info.border == HbGPU_Sampler_Border_RGB1_A1 ? 1.0f : 0.0f;
+	samplerDesc.BorderColor[3] = info.border != HbGPU_Sampler_Border_RGB0_A0 ? 1.0f : 0.0f;
+	samplerDesc.MinLOD = (float) info.mipMostDetailed;
+	samplerDesc.MaxLOD =
+			info.mipLeastDetailed == HbGPU_Sampler_MipLeastDetailed_FullPyramid ? FLT_MAX : (float) info.mipLeastDetailed;
+	ID3D12Device_CreateSampler(store->device->d3dDevice, &samplerDesc, HbGPUi_D3D_SamplerStore_GetCPUHandle(store, index));
+	return HbTrue;
+}
+
+void HbGPUi_D3D_Sampler_ToStatic(HbGPU_Sampler_Info info, D3D12_STATIC_SAMPLER_DESC * samplerDesc) {
+	samplerDesc->Filter = HbGPUi_D3D_Sampler_Filter_ToD3D(info.filter, info.isComparison, &samplerDesc->MaxAnisotropy);
+	samplerDesc->AddressU = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapS);
+	samplerDesc->AddressV = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapT);
+	samplerDesc->AddressW = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapR);
+	samplerDesc->MipLODBias = (float) info.mipBias;
+	samplerDesc->ComparisonFunc = (D3D12_COMPARISON_FUNC) (D3D12_COMPARISON_FUNC_NEVER + info.comparison);
+	switch (info.border) {
+	case HbGPU_Sampler_Border_RGB0_A1:
+		samplerDesc->BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
+		break;
+	case HbGPU_Sampler_Border_RGB1_A1:
+		samplerDesc->BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+		break;
+	default:
+		samplerDesc->BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		break;
+	}
+	samplerDesc->MinLOD = (float) info.mipMostDetailed;
+	samplerDesc->MaxLOD =
+			info.mipLeastDetailed == HbGPU_Sampler_MipLeastDetailed_FullPyramid ? FLT_MAX : (float) info.mipLeastDetailed;
+}
+
 /************************
  * Render target storage
  ************************/
@@ -624,6 +731,170 @@ void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain) {
 	}
 	ID3D12DescriptorHeap_Release(chain->d3dRTVHeap);
 	IDXGISwapChain3_Release(chain->dxgiSwapChain);
+}
+
+/*****************
+ * Binding layout
+ *****************/
+
+static inline HbGPUi_D3D_Binding_GetShaderVisibility(HbGPU_ProgramStageBits stages) {
+	switch (stages) {
+	case HbGPU_ProgramStageBits_Vertex:
+		return D3D12_SHADER_VISIBILITY_VERTEX;
+	case HbGPU_ProgramStageBits_Pixel:
+		return D3D12_SHADER_VISIBILITY_PIXEL;
+	default:
+		break;
+	}
+	// Multiple stages or compute.
+	return D3D12_SHADER_VISIBILITY_ALL;
+}
+
+HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Binding const * bindings, uint32_t bindingCount, HbBool useVertexAttributes) {
+	if (bindingCount > HbGPU_BindingLayout_MaxBindings) {
+		return HbFalse;
+	}
+	memset(layout->d3dRootSlots, UINT8_MAX, sizeof(layout->d3dRootSlots));
+	D3D12_ROOT_PARAMETER parameters[HbGPU_BindingLayout_MaxBindings];
+	uint32_t parameterCount = 0;
+	uint32_t staticSamplerCount = 0;
+	for (uint32_t bindingIndex = 0; bindingIndex < bindingCount; ++bindingIndex) {
+		HbGPU_Binding const * binding = &bindings[bindingIndex];
+		D3D12_ROOT_PARAMETER * parameter = &parameters[parameterCount];
+		parameter->ShaderVisibility = HbGPUi_D3D_Binding_GetShaderVisibility(binding->stages);
+		switch (binding->type) {
+		case HbGPU_Binding_Type_HandleRangeSet:
+			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+			uint32_t rangeCount = binding->binding.handleRangeSet.rangeCount;
+			if (rangeCount == 0) {
+				continue; // HbStackAlloc safety.
+			}
+			parameter->DescriptorTable.NumDescriptorRanges = rangeCount;
+			HbGPU_Binding_HandleRange const * ranges = binding->binding.handleRangeSet.ranges;
+			D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(rangeCount * sizeof(D3D12_DESCRIPTOR_RANGE));
+			parameter->DescriptorTable.pDescriptorRanges = d3dRanges;
+			for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
+				HbGPU_Binding_HandleRange const * range = &ranges[rangeIndex];
+				D3D12_DESCRIPTOR_RANGE * d3dRange = &d3dRanges[rangeIndex];
+				switch (range->type) {
+				case HbGPU_Binding_HandleRange_Type_ConstantBuffer:
+					d3dRange->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+					break;
+				case HbGPU_Binding_HandleRange_Type_ResourceBuffer:
+				case HbGPU_Binding_HandleRange_Type_Texture:
+					d3dRange->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+					break;
+				case HbGPU_Binding_HandleRange_Type_EditBuffer:
+				case HbGPU_Binding_HandleRange_Type_EditImage:
+					d3dRange->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+					break;
+				default:
+					return HbFalse;
+				}
+				d3dRange->NumDescriptors = range->handleCount;
+				d3dRange->BaseShaderRegister = range->firstRegister.cbufferResourceEdit;
+				d3dRange->RegisterSpace = 0;
+				d3dRange->OffsetInDescriptorsFromTableStart = range->handleOffset;
+			}
+			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			break;
+		case HbGPU_Binding_Type_SamplerRangeSet: {
+			uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
+			if (rangeCount == 0) {
+				continue; // HbStackAlloc safety.
+			}
+			HbGPU_Binding_SamplerRange const * ranges = binding->binding.samplerRangeSet.ranges;
+			if (binding->binding.samplerRangeSet.staticSamplers != HbNull) {
+				for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
+					staticSamplerCount += ranges[rangeIndex].samplerCount;
+				}
+				continue;
+			}
+			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+			parameter->DescriptorTable.NumDescriptorRanges = rangeCount;
+			D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(rangeCount * sizeof(D3D12_DESCRIPTOR_RANGE));
+			parameter->DescriptorTable.pDescriptorRanges = d3dRanges;
+			for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
+				HbGPU_Binding_SamplerRange const * range = &ranges[rangeIndex];
+				D3D12_DESCRIPTOR_RANGE * d3dRange = &d3dRanges[rangeIndex];
+				d3dRange->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+				d3dRange->NumDescriptors = range->samplerCount;
+				d3dRange->BaseShaderRegister = range->firstRegister;
+				d3dRange->RegisterSpace = 0;
+				d3dRange->OffsetInDescriptorsFromTableStart = range->samplerOffset;
+			}
+			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			break;
+		} case HbGPU_Binding_Type_ConstantBuffer:
+			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+			parameter->Descriptor.RegisterSpace = 0;
+			parameter->Descriptor.ShaderRegister = binding->binding.constantBuffer.bindRegister.cbufferResourceEdit;
+			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			break;
+		case HbGPU_Binding_Type_SmallConstants:
+			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+			parameter->Constants.Num32BitValues = (binding->binding.smallConstants.size + 3) >> 2;
+			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			break;
+		default:
+			return HbFalse;
+		}
+	}
+	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {
+		.NumParameters = parameterCount,
+		.pParameters = parameters,
+		.NumStaticSamplers = staticSamplerCount,
+		.Flags = useVertexAttributes ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE,
+	};
+	if (staticSamplerCount != 0) {
+		D3D12_STATIC_SAMPLER_DESC * d3dStaticSamplers = HbStackAlloc(staticSamplerCount * sizeof(D3D12_STATIC_SAMPLER_DESC));
+		rootSignatureDesc.pStaticSamplers = d3dStaticSamplers;
+		uint32_t d3dStaticSamplerIndex = 0;
+		for (uint32_t bindingIndex = 0; bindingIndex < bindingCount; ++bindingIndex) {
+			HbGPU_Binding const * binding = &bindings[bindingIndex];
+			if (binding->type != HbGPU_Binding_Type_SamplerRangeSet) {
+				continue;
+			}
+			HbGPU_Sampler_Info const * bindingSamplers = binding->binding.samplerRangeSet.staticSamplers;
+			uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
+			if (bindingSamplers == HbNull || rangeCount == 0) {
+				continue;
+			}
+			D3D12_SHADER_VISIBILITY bindingVisiblity = HbGPUi_D3D_Binding_GetShaderVisibility(binding->stages);
+			uint32_t bindingSamplerIndex = 0;
+			HbGPU_Binding_SamplerRange const * ranges = binding->binding.samplerRangeSet.ranges;
+			for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
+				HbGPU_Binding_SamplerRange const * range = &ranges[rangeIndex];
+				for (uint32_t rangeSamplerIndex = 0; rangeSamplerIndex < range->samplerCount; ++rangeSamplerIndex) {
+					D3D12_STATIC_SAMPLER_DESC * d3dStaticSampler = &d3dStaticSamplers[d3dStaticSamplerIndex++];
+					HbGPUi_D3D_Sampler_ToStatic(bindingSamplers[bindingSamplerIndex++], d3dStaticSampler);
+					d3dStaticSampler->ShaderRegister = range->firstRegister + rangeSamplerIndex;
+					d3dStaticSampler->RegisterSpace = 0;
+					d3dStaticSampler->ShaderVisibility = bindingVisiblity;
+				}
+			}
+		}
+	}
+	ID3D10Blob * blob, * errorBlob = HbNull;
+	if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errorBlob))) {
+		if (errorBlob != HbNull) {
+			ID3D10Blob_Release(errorBlob);
+		}
+		return HbFalse;
+	}
+	if (FAILED(ID3D12Device_CreateRootSignature(device->d3dDevice, 0, ID3D10Blob_GetBufferPointer(blob), ID3D10Blob_GetBufferSize(blob),
+			&IID_ID3D12RootSignature, &layout->d3dRootSignature))) {
+		ID3D10Blob_Release(blob);
+		return HbFalse;
+	}
+	ID3D10Blob_Release(blob);
+	HbGPUi_D3D_SetObjectName(layout->d3dRootSignature, layout->d3dRootSignature->lpVtbl->SetName, name);
+	return HbTrue;
+}
+
+void HbGPU_BindingLayout_Destroy(HbGPU_BindingLayout * layout) {
+	ID3D12RootSignature_Release(layout->d3dRootSignature);
 }
 
 #endif

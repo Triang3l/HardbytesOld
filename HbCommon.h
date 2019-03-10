@@ -81,6 +81,7 @@ typedef uint8_t HbBool;
 #define HbArrayLength(arr) (sizeof(arr) / (sizeof((arr)[0])))
 
 // Stack allocation.
+// WARNING: Don't call with 0, it may cause freeing all the `alloca`ted memory on some compilers.
 
 #if HbPlatform_OS_Windows
 #include <malloc.h>

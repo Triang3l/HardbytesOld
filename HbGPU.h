@@ -20,6 +20,29 @@
 HbBool HbGPU_Init(HbBool debug);
 void HbGPU_Shutdown();
 
+typedef enum HbGPU_Comparison {
+	HbGPU_Comparison_Never,        // 000
+	HbGPU_Comparison_Less,         // 001
+	HbGPU_Comparison_Equal,        // 010
+	HbGPU_Comparison_LessEqual,    // 011
+	HbGPU_Comparison_Greater,      // 100
+	HbGPU_Comparison_NotEqual,     // 101
+	HbGPU_Comparison_GreaterEqual, // 110
+	HbGPU_Comparison_Always,       // 111
+} HbGPU_Comparison;
+
+typedef enum HbGPU_ProgramStage {
+	HbGPU_ProgramStage_Vertex,
+	HbGPU_ProgramStage_Pixel,
+	HbGPU_ProgramStage_Compute,
+} HbGPU_ProgramStage;
+typedef uint32_t HbGPU_ProgramStageBits;
+enum {
+	HbGPU_ProgramStageBits_Vertex = 1,
+	HbGPU_ProgramStageBits_Pixel = HbGPU_ProgramStageBits_Vertex << 1,
+	HbGPU_ProgramStageBits_Compute = HbGPU_ProgramStageBits_Pixel << 1,
+};
+
 /**************************************
  * Command queue types for submissions
  **************************************/
@@ -183,6 +206,7 @@ enum {
 	HbGPU_Image_MaxSize1D2D = 1 << HbGPU_Image_MaxSize1D2DLog2,
 	HbGPU_Image_MaxSize3DLog2 = 11,
 	HbGPU_Image_MaxSize3D = 1 << HbGPU_Image_MaxSize3DLog2,
+	HbGPU_Image_MipCountBits = 4,
 	HbGPU_Image_MaxLayersLog2 = 11,
 	HbGPU_Image_MaxLayers = 1 << HbGPU_Image_MaxLayersLog2,
 	HbGPU_Image_MaxLayersCube = HbGPU_Image_MaxLayers / 6,
@@ -248,7 +272,7 @@ typedef union HbGPU_Image_ClearValue {
 } HbGPU_Image_ClearValue;
 
 typedef struct HbGPU_Image_Slice {
-	uint32_t mip : 5;
+	uint32_t mip : HbGPU_Image_MipCountBits;
 	uint32_t cubeSide : 3;
 	uint32_t layer : HbGPU_Image_MaxLayersLog2;
 	uint32_t stencil : 1;
@@ -286,6 +310,77 @@ void HbGPU_HandleStore_SetTexture(HbGPU_HandleStore * store, uint32_t index, HbG
 void HbGPU_HandleStore_SetNullTexture(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image_Dimensions dimensions, HbBool multisample);
 // The implementation may ignore the specified mip level if shaders can access all mips.
 void HbGPU_HandleStore_SetEditImage(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image * image, uint32_t mip);
+
+/**********
+ * Sampler
+ **********/
+
+typedef enum HbGPU_Sampler_Filter {
+	HbGPU_Sampler_Filter_Point,
+	HbGPU_Sampler_Filter_Bilinear,
+	HbGPU_Sampler_Filter_Trilinear,
+	HbGPU_Sampler_Filter_Aniso2x,
+	HbGPU_Sampler_Filter_Aniso4x,
+	HbGPU_Sampler_Filter_Aniso8x,
+	HbGPU_Sampler_Filter_Aniso16,
+
+	HbGPU_Sampler_Filter_BitCount = 3,
+} HbGPU_Sampler_Filter;
+
+typedef enum HbGPU_Sampler_Wrap {
+	HbGPU_Sampler_Wrap_Repeat,
+	HbGPU_Sampler_Wrap_Clamp,
+	HbGPU_Sampler_Wrap_MirrorRepeat,
+	HbGPU_Sampler_Wrap_MirrorClamp,
+	HbGPU_Sampler_Wrap_Border,
+
+	HbGPU_Sampler_Wrap_BitCount = 3,
+} HbGPU_Sampler_Wrap;
+
+typedef enum HbGPU_Sampler_Border {
+	HbGPU_Sampler_Border_RGB0_A0,
+	HbGPU_Sampler_Border_RGB0_A1,
+	HbGPU_Sampler_Border_RGB1_A1,
+
+	HbGPU_Sampler_Border_BitCount = 2,
+} HbGPU_Sampler_Border;
+
+typedef struct HbGPU_Sampler_Info {
+	uint32_t filter : HbGPU_Sampler_Filter_BitCount;
+	uint32_t wrapS : HbGPU_Sampler_Wrap_BitCount;
+	uint32_t wrapT : HbGPU_Sampler_Wrap_BitCount;
+	uint32_t wrapR : HbGPU_Sampler_Wrap_BitCount;
+	uint32_t border : HbGPU_Sampler_Border_BitCount;
+	uint32_t mipMostDetailed : HbGPU_Image_MipCountBits;
+	uint32_t mipLeastDetailed : HbGPU_Image_MipCountBits;
+	uint32_t mipBias : HbGPU_Image_MipCountBits;
+	HbBool isComparison : 1;
+	uint32_t comparison : 3;
+} HbGPU_Sampler_Info;
+
+enum { HbGPU_Sampler_MipLeastDetailed_FullPyramid = (1 << HbGPU_Image_MipCountBits) - 1 };
+
+typedef struct HbGPU_SamplerStore {
+	HbGPU_Device * device;
+	#if HbGPU_Implementation_D3D
+	HbGPU_Sampler_Info * infos; // In Direct3D, for static samplers.
+	#endif
+	#if HbGPU_Implementation_D3D
+	ID3D12DescriptorHeap * d3dHeap;
+	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapCPUStart;
+	D3D12_GPU_DESCRIPTOR_HANDLE d3dHeapGPUStart;
+	#endif
+} HbGPU_SamplerStore;
+
+HbBool HbGPU_SamplerStore_Init(HbGPU_SamplerStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t samplerCount);
+void HbGPU_SamplerStore_Destroy(HbGPU_SamplerStore * store);
+HbBool HbGPU_SamplerStore_CreateSampler(HbGPU_SamplerStore * store, uint32_t index, HbGPU_Sampler_Info info);
+#if HbGPU_Implementation_D3D
+// Not needed - samplers are purely descriptors.
+#define HbGPU_SamplerStore_DestroySampler(store, index) {}
+#else
+void HbGPU_SamplerStore_DestroySampler(HbGPU_SamplerStore * store, uint32_t index);
+#endif
 
 /************************
  * Render target storage
@@ -341,6 +436,85 @@ typedef struct HbGPU_SwapChain {
 HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered);
 void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain);
+
+/*****************
+ * Binding layout
+ *****************/
+
+typedef struct HbGPU_Binding_RegisterIndex {
+	uint32_t cbufferResourceEdit; // In Direct3D namespaces.
+	uint32_t bufferImage; // In Metal namespaces.
+} HbGPU_Binding_RegisterIndex;
+
+typedef enum HbGPU_Binding_HandleRange_Type {
+	HbGPU_Binding_HandleRange_Type_ConstantBuffer, // b# in both Direct3D and Metal.
+	HbGPU_Binding_HandleRange_Type_ResourceBuffer, // t# in Direct3D, b# in Metal.
+	HbGPU_Binding_HandleRange_Type_EditBuffer, // u# in Direct3D, b# in Metal.
+	HbGPU_Binding_HandleRange_Type_Texture, // t# in Direct3D, t# in Metal.
+	HbGPU_Binding_HandleRange_Type_EditImage, // u# in Direct3D, t# in Metal.
+} HbGPU_Binding_HandleRange_Type;
+
+typedef struct HbGPU_Binding_HandleRange {
+	HbGPU_Binding_HandleRange_Type type;
+	uint32_t handleOffset;
+	uint32_t handleCount;
+	HbGPU_Binding_RegisterIndex firstRegister;
+} HbGPU_Binding_HandleRange;
+
+typedef struct HbGPU_Binding_SamplerRange {
+	uint32_t samplerOffset;
+	uint32_t samplerCount;
+	uint32_t firstRegister;
+} HbGPU_Binding_SamplerRange;
+
+typedef enum HbGPU_Binding_Type {
+	HbGPU_Binding_Type_HandleRangeSet,
+	HbGPU_Binding_Type_SamplerRangeSet,
+	HbGPU_Binding_Type_ConstantBuffer,
+	HbGPU_Binding_Type_SmallConstants,
+} HbGPU_Binding_Type;
+
+typedef struct HbGPU_Binding {
+	HbGPU_Binding_Type type;
+	HbGPU_ProgramStageBits stages; // On Direct3D, filtering works the "one stage or all stages" way.
+	union {
+		struct {
+			HbGPU_Binding_HandleRange const * ranges;
+			uint32_t rangeCount;
+		} handleRangeSet;
+		struct {
+			HbGPU_Binding_SamplerRange const * ranges;
+			uint32_t rangeCount;
+			// If not null, the implementation may try to pre-compile the ranges using these samplers.
+			// Some implementations do not support this - binding when drawing still must be done.
+			HbGPU_Sampler_Info const * staticSamplers;
+		} samplerRangeSet;
+		struct {
+			HbGPU_Binding_RegisterIndex bindRegister;
+		} constantBuffer;
+		struct {
+			HbGPU_Binding_RegisterIndex bindRegister;
+			uint32_t size; // 32-bit-aligned.
+		} smallConstants;
+	} binding;
+} HbGPU_Binding;
+
+// Don't need too many. On AMD, more than 13 D3D root signature dwords is not recommended.
+#define HbGPU_BindingLayout_MaxBindings 16
+
+typedef struct HbGPU_BindingLayout {
+	#if HbGPU_Implementation_D3D
+	ID3D12RootSignature * d3dRootSignature;
+	// Mappings of HbGPU_Binding indices to root signature indices (skipping static samplers).
+	// UINT32_MAX for unmapped (including static samplers).
+	uint32_t d3dRootSlots[HbGPU_BindingLayout_MaxBindings];
+	#endif
+} HbGPU_BindingLayout;
+
+// The binding array is not stored, can be built locally and dynamically.
+HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Binding const * bindings, uint32_t bindingCount, HbBool useVertexAttributes);
+void HbGPU_BindingLayout_Destroy(HbGPU_BindingLayout * layout);
 
 /***************
  * Command list
