@@ -367,10 +367,6 @@ void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t wri
 
 HbBool HbGPU_SamplerStore_Init(HbGPU_SamplerStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t samplerCount) {
 	store->device = device;
-	store->infos = HbMemory_TryAlloc(device->d3dMemoryTag, samplerCount * sizeof(store->infos[0]), HbFalse);
-	if (store->infos == HbNull) {
-		return HbFalse;
-	}
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {
 		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
 		.NumDescriptors = samplerCount,
@@ -378,7 +374,6 @@ HbBool HbGPU_SamplerStore_Init(HbGPU_SamplerStore * store, HbTextU8 const * name
 		.NodeMask = 0,
 	};
 	if (FAILED(ID3D12Device_CreateDescriptorHeap(device->d3dDevice, &heapDesc, &IID_ID3D12DescriptorHeap, &store->d3dHeap))) {
-		HbMemory_Free(store->infos);
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetObjectName(store->d3dHeap, store->d3dHeap->lpVtbl->SetName, name);
@@ -393,7 +388,6 @@ HbBool HbGPU_SamplerStore_Init(HbGPU_SamplerStore * store, HbTextU8 const * name
 
 void HbGPU_SamplerStore_Destroy(HbGPU_SamplerStore * store) {
 	ID3D12DescriptorHeap_Release(store->d3dHeap);
-	HbMemory_Free(store->infos);
 }
 
 static D3D12_FILTER HbGPUi_D3D_Sampler_Filter_ToD3D(HbGPU_Sampler_Filter filter, HbBool isComparison, UINT * maxAnistoropyOut) {

@@ -363,9 +363,6 @@ enum { HbGPU_Sampler_MipLeastDetailed_FullPyramid = (1 << HbGPU_Image_MipCountBi
 typedef struct HbGPU_SamplerStore {
 	HbGPU_Device * device;
 	#if HbGPU_Implementation_D3D
-	HbGPU_Sampler_Info * infos; // In Direct3D, for static samplers.
-	#endif
-	#if HbGPU_Implementation_D3D
 	ID3D12DescriptorHeap * d3dHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapCPUStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE d3dHeapGPUStart;
