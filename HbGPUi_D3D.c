@@ -1129,8 +1129,12 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 		return HbFalse;
 	}
 	pipelineStateDesc.SampleDesc.Count = 1 << info->samplesLog2;
-	return SUCCEEDED(ID3D12Device_CreateGraphicsPipelineState(
-			device->d3dDevice, &pipelineStateDesc, &IID_ID3D12PipelineState, &config->d3dPipelineState));
+	if (FAILED(ID3D12Device_CreateGraphicsPipelineState(
+			device->d3dDevice, &pipelineStateDesc, &IID_ID3D12PipelineState, &config->d3dPipelineState))) {
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(config->d3dPipelineState, config->d3dPipelineState->lpVtbl->SetName, name);
+	return HbTrue;
 }
 
 void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config) {
