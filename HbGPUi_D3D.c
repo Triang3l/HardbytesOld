@@ -275,6 +275,8 @@ D3D12_RESOURCE_STATES HbGPUi_D3D_Buffer_Usage_ToStates(HbGPU_Buffer_Usage usage)
 		return D3D12_RESOURCE_STATE_COMMON;
 	case HbGPU_Buffer_Usage_CPUToGPU:
 		return D3D12_RESOURCE_STATE_GENERIC_READ;
+	default:
+		break;
 	}
 	D3D12_RESOURCE_STATES states = (D3D12_RESOURCE_STATES) 0;
 	if (usage & (HbGPU_Buffer_Usage_Read_Vertices | HbGPU_Buffer_Usage_Read_Constants)) {
@@ -407,6 +409,8 @@ static D3D12_FILTER HbGPUi_D3D_Sampler_Filter_ToD3D(HbGPU_Sampler_Filter filter,
 
 static inline D3D12_TEXTURE_ADDRESS_MODE HbGPUi_D3D_Sampler_Wrap_ToD3D(HbGPU_Sampler_Wrap wrap) {
 	switch (wrap) {
+	case HbGPU_Sampler_Wrap_Repeat:
+		return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	case HbGPU_Sampler_Wrap_Clamp:
 		return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	case HbGPU_Sampler_Wrap_MirrorRepeat:
@@ -731,11 +735,11 @@ void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain) {
  * Binding layout
  *****************/
 
-static inline HbGPUi_D3D_Binding_GetShaderVisibility(HbGPU_ProgramStageBits stages) {
+static inline HbGPUi_D3D_Binding_GetShaderVisibility(HbGPU_ShaderStageBits stages) {
 	switch (stages) {
-	case HbGPU_ProgramStageBits_Vertex:
+	case HbGPU_ShaderStageBits_Vertex:
 		return D3D12_SHADER_VISIBILITY_VERTEX;
-	case HbGPU_ProgramStageBits_Pixel:
+	case HbGPU_ShaderStageBits_Pixel:
 		return D3D12_SHADER_VISIBILITY_PIXEL;
 	default:
 		break;
@@ -828,7 +832,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 			break;
 		case HbGPU_Binding_Type_SmallConstants:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-			parameter->Constants.Num32BitValues = (binding->binding.smallConstants.size + 3) >> 2;
+			parameter->Constants.Num32BitValues = binding->binding.smallConstants.sizeInDwords;
 			layout->d3dRootSlots[bindingIndex] = parameterCount++;
 			break;
 		default:
@@ -889,6 +893,248 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 
 void HbGPU_BindingLayout_Destroy(HbGPU_BindingLayout * layout) {
 	ID3D12RootSignature_Release(layout->d3dRootSignature);
+}
+
+/************************
+ * Drawing configuration
+ ************************/
+
+static D3D12_BLEND HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(HbGPU_DrawConfig_RT_BlendFactor factor, HbBool alpha) {
+	switch (factor) {
+	case HbGPU_DrawConfig_RT_BlendFactor_Zero:
+		return D3D12_BLEND_ZERO;
+	case HbGPU_DrawConfig_RT_BlendFactor_One:
+		return D3D12_BLEND_ONE;
+	case HbGPU_DrawConfig_RT_BlendFactor_SourceColor:
+		return alpha ? D3D12_BLEND_SRC_ALPHA : D3D12_BLEND_SRC_COLOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusSourceColor:
+		return alpha ? D3D12_BLEND_INV_SRC_ALPHA : D3D12_BLEND_INV_SRC_COLOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_SourceAlpha:
+		return D3D12_BLEND_SRC_ALPHA;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusSourceAlpha:
+		return D3D12_BLEND_INV_SRC_ALPHA;
+	case HbGPU_DrawConfig_RT_BlendFactor_TargetColor:
+		return alpha ? D3D12_BLEND_DEST_ALPHA : D3D12_BLEND_DEST_COLOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusTargetColor:
+		return alpha ? D3D12_BLEND_INV_DEST_ALPHA : D3D12_BLEND_INV_DEST_COLOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_TargetAlpha:
+		return D3D12_BLEND_DEST_ALPHA;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusTargetAlpha:
+		return D3D12_BLEND_INV_DEST_ALPHA;
+	case HbGPU_DrawConfig_RT_BlendFactor_SourceAlphaSaturated:
+		return D3D12_BLEND_SRC_ALPHA_SAT;
+	case HbGPU_DrawConfig_RT_BlendFactor_Constant:
+		return D3D12_BLEND_BLEND_FACTOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusConstant:
+		return D3D12_BLEND_INV_BLEND_FACTOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_Source1Color:
+		return alpha ? D3D12_BLEND_SRC1_ALPHA : D3D12_BLEND_SRC1_COLOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusSource1Color:
+		return alpha ? D3D12_BLEND_INV_SRC1_ALPHA : D3D12_BLEND_INV_SRC1_COLOR;
+	case HbGPU_DrawConfig_RT_BlendFactor_Source1Alpha:
+		return D3D12_BLEND_SRC1_ALPHA;
+	case HbGPU_DrawConfig_RT_BlendFactor_OneMinusSource1Alpha:
+		return D3D12_BLEND_INV_SRC1_ALPHA;
+	default:
+		break;
+	}
+	return D3D12_BLEND_ZERO;
+}
+
+static D3D12_BLEND_OP HbGPUi_D3D_DrawConfig_RT_BlendOp_ToD3D(HbGPU_DrawConfig_RT_BlendOp op) {
+	switch (op) {
+	case HbGPU_DrawConfig_RT_BlendOp_Add:
+		return D3D12_BLEND_OP_ADD;
+	case HbGPU_DrawConfig_RT_BlendOp_Subtract:
+		return D3D12_BLEND_OP_SUBTRACT;
+	case HbGPU_DrawConfig_RT_BlendOp_ReverseSubtract:
+		return D3D12_BLEND_OP_REV_SUBTRACT;
+	case HbGPU_DrawConfig_RT_BlendOp_Min:
+		return D3D12_BLEND_OP_MIN;
+	case HbGPU_DrawConfig_RT_BlendOp_Max:
+		return D3D12_BLEND_OP_MAX;
+	default:
+		break;
+	}
+	return D3D12_BLEND_OP_ADD;
+}
+
+static D3D12_STENCIL_OP HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(HbGPU_DrawConfig_Stencil_Op op) {
+	switch (op) {
+	case HbGPU_DrawConfig_Stencil_Op_Keep:
+		return D3D12_STENCIL_OP_KEEP;
+	case HbGPU_DrawConfig_Stencil_Op_Zero:
+		return D3D12_STENCIL_OP_ZERO;
+	case HbGPU_DrawConfig_Stencil_Op_Replace:
+		return D3D12_STENCIL_OP_REPLACE;
+	case HbGPU_DrawConfig_Stencil_Op_IncrementSaturate:
+		return D3D12_STENCIL_OP_INCR_SAT;
+	case HbGPU_DrawConfig_Stencil_Op_DecrementSaturate:
+		return D3D12_STENCIL_OP_DECR_SAT;
+	case HbGPU_DrawConfig_Stencil_Op_Invert:
+		return D3D12_STENCIL_OP_INVERT;
+	case HbGPU_DrawConfig_Stencil_Op_Increment:
+		return D3D12_STENCIL_OP_INCR;
+	case HbGPU_DrawConfig_Stencil_Op_Decrement:
+		return D3D12_STENCIL_OP_DECR;
+	}
+	return D3D12_STENCIL_OP_KEEP;
+}
+
+HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, HbGPU_Device * device, HbGPU_DrawConfig_Info const * info) {
+	if (info->vertexAttributeCount > D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT ||
+		info->rtCount > D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT) {
+		return HbFalse;
+	}
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc = { 0 };
+	pipelineStateDesc.pRootSignature = info->bindingLayout->d3dRootSignature;
+	pipelineStateDesc.VS.pShaderBytecode = info->shaderVertex.dxbc;
+	pipelineStateDesc.VS.BytecodeLength = info->shaderVertex.dxbcSize;
+	pipelineStateDesc.PS.pShaderBytecode = info->shaderPixel.dxbc;
+	pipelineStateDesc.PS.BytecodeLength = info->shaderPixel.dxbcSize;
+	pipelineStateDesc.BlendState.AlphaToCoverageEnable = info->alphaToCoverage;
+	pipelineStateDesc.BlendState.IndependentBlendEnable = !info->rtsSameBlendAndWriteMasks;
+	pipelineStateDesc.NumRenderTargets = info->rtCount;
+	for (uint32_t rtIndex = 0; rtIndex < info->rtCount; ++rtIndex) {
+		HbGPU_DrawConfig_RT const * rt = &info->rts[rtIndex];
+		if (rtIndex == 0 || !info->rtsSameBlendAndWriteMasks) {
+			D3D12_RENDER_TARGET_BLEND_DESC * blendDesc = &pipelineStateDesc.BlendState.RenderTarget[rtIndex];
+			if (rt->blend) {
+				blendDesc->BlendEnable = TRUE;
+				blendDesc->SrcBlend = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorSourceRGB, HbFalse);
+				blendDesc->DestBlend = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorTargetRGB, HbFalse);
+				blendDesc->BlendOp = HbGPUi_D3D_DrawConfig_RT_BlendOp_ToD3D(rt->blendOpRGB);
+				blendDesc->SrcBlendAlpha = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorSourceAlpha, HbTrue);
+				blendDesc->DestBlendAlpha = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorTargetAlpha, HbTrue);
+				blendDesc->BlendOpAlpha = HbGPUi_D3D_DrawConfig_RT_BlendOp_ToD3D(rt->blendOpAlpha);
+				blendDesc->RenderTargetWriteMask = rt->writeMask;
+			}
+		}
+		pipelineStateDesc.RTVFormats[rtIndex] = HbGPUi_D3D_Image_Format_ToTyped(rt->format);
+	}
+	pipelineStateDesc.SampleMask = UINT_MAX;
+	pipelineStateDesc.RasterizerState.FillMode = info->wireframe ? D3D12_FILL_MODE_WIREFRAME : D3D12_FILL_MODE_SOLID;
+	if (info->cullSide < 0) {
+		pipelineStateDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	} else if (info->cullSide > 0) {
+		pipelineStateDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
+	} else {
+		pipelineStateDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	}
+	pipelineStateDesc.RasterizerState.FrontCounterClockwise = info->frontCounterClockwise;
+	pipelineStateDesc.RasterizerState.DepthBias = info->depthBias;
+	pipelineStateDesc.RasterizerState.DepthBiasClamp = info->depthBiasClamp;
+	pipelineStateDesc.RasterizerState.SlopeScaledDepthBias = info->depthBiasSlope;
+	pipelineStateDesc.RasterizerState.DepthClipEnable = !info->depthClamp;
+	HbGPU_DrawConfig_DepthStencilInfo const * depthStencil = info->depthStencil;
+	if (depthStencil != HbNull) {
+		if (depthStencil->depthTest) {
+			pipelineStateDesc.DepthStencilState.DepthEnable = TRUE;
+			pipelineStateDesc.DepthStencilState.DepthWriteMask =
+					depthStencil->depthWrite ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+			pipelineStateDesc.DepthStencilState.DepthFunc =
+					(D3D12_COMPARISON_FUNC) (D3D12_COMPARISON_FUNC_NEVER + depthStencil->depthComparison);
+		}
+		if (depthStencil->stencil) {
+			pipelineStateDesc.DepthStencilState.StencilEnable = TRUE;
+			pipelineStateDesc.DepthStencilState.StencilReadMask = depthStencil->stencilReadMask;
+			pipelineStateDesc.DepthStencilState.StencilWriteMask = depthStencil->stencilWriteMask;
+			pipelineStateDesc.DepthStencilState.FrontFace.StencilFailOp =
+					HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(depthStencil->stencilFront.fail);
+			pipelineStateDesc.DepthStencilState.FrontFace.StencilDepthFailOp =
+					HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(depthStencil->stencilFront.depthFail);
+			pipelineStateDesc.DepthStencilState.FrontFace.StencilPassOp =
+					HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(depthStencil->stencilFront.pass);
+			pipelineStateDesc.DepthStencilState.FrontFace.StencilFunc =
+					(D3D12_COMPARISON_FUNC) (D3D12_COMPARISON_FUNC_NEVER + depthStencil->stencilFront.comparison);
+			pipelineStateDesc.DepthStencilState.BackFace.StencilFailOp =
+					HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(depthStencil->stencilBack.fail);
+			pipelineStateDesc.DepthStencilState.BackFace.StencilDepthFailOp =
+					HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(depthStencil->stencilBack.depthFail);
+			pipelineStateDesc.DepthStencilState.BackFace.StencilPassOp =
+					HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(depthStencil->stencilBack.pass);
+			pipelineStateDesc.DepthStencilState.BackFace.StencilFunc =
+					(D3D12_COMPARISON_FUNC) (D3D12_COMPARISON_FUNC_NEVER + depthStencil->stencilBack.comparison);
+		}
+		pipelineStateDesc.DSVFormat = HbGPUi_D3D_Image_Format_ToTyped(depthStencil->format);
+	}
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT];
+	for (uint32_t attributeIndex = 0; attributeIndex < info->vertexAttributeCount; ++attributeIndex) {
+		HbGPU_Vertex_Attribute const * attribute = &info->vertexAttributes[attributeIndex];
+		D3D12_INPUT_ELEMENT_DESC * inputElementDesc = &inputElementDescs[attributeIndex];
+		switch (attribute->semantic) {
+		case HbGPU_Vertex_Semantic_Position: inputElementDesc->SemanticName = "POSITION"; break;
+		case HbGPU_Vertex_Semantic_Normal: inputElementDesc->SemanticName = "NORMAL"; break;
+		case HbGPU_Vertex_Semantic_Tangent: inputElementDesc->SemanticName = "TANGENT"; break;
+		case HbGPU_Vertex_Semantic_TexCoord: inputElementDesc->SemanticName = "TEXCOORD"; break;
+		case HbGPU_Vertex_Semantic_Color: inputElementDesc->SemanticName = "COLOR"; break;
+		case HbGPU_Vertex_Semantic_BlendIndices: inputElementDesc->SemanticName = "BLENDINDICES"; break;
+		case HbGPU_Vertex_Semantic_BlendWeights: inputElementDesc->SemanticName = "BLENDWEIGHTS"; break;
+		default: return HbFalse;
+		}
+		inputElementDesc->SemanticIndex = attribute->semanticIndex;
+		static DXGI_FORMAT const vertexFormats[] = {
+			[HbGPU_Vertex_Format_Float_32x1] = DXGI_FORMAT_R32_FLOAT,
+			[HbGPU_Vertex_Format_Float_32x2] = DXGI_FORMAT_R32G32_FLOAT,
+			[HbGPU_Vertex_Format_Float_32x3] = DXGI_FORMAT_R32G32B32_FLOAT,
+			[HbGPU_Vertex_Format_Float_32x4] = DXGI_FORMAT_R32G32B32A32_FLOAT,
+			[HbGPU_Vertex_Format_Float_16x2] = DXGI_FORMAT_R16G16_FLOAT,
+			[HbGPU_Vertex_Format_Float_16x4] = DXGI_FORMAT_R16G16B16A16_FLOAT,
+			[HbGPU_Vertex_Format_Float_11_11_10] = DXGI_FORMAT_R11G11B10_FLOAT,
+			[HbGPU_Vertex_Format_UNorm_16x2] = DXGI_FORMAT_R16G16_UNORM,
+			[HbGPU_Vertex_Format_UNorm_16x4] = DXGI_FORMAT_R16G16B16A16_UNORM,
+			[HbGPU_Vertex_Format_UNorm_8x4] = DXGI_FORMAT_R8G8B8A8_UNORM,
+			[HbGPU_Vertex_Format_SNorm_16x2] = DXGI_FORMAT_R16G16_SNORM,
+			[HbGPU_Vertex_Format_SNorm_16x4] = DXGI_FORMAT_R16G16B16A16_SNORM,
+			[HbGPU_Vertex_Format_SNorm_8x4] = DXGI_FORMAT_R8G8B8A8_SNORM,
+			[HbGPU_Vertex_Format_UInt_32x1] = DXGI_FORMAT_R32_UINT,
+			[HbGPU_Vertex_Format_UInt_32x2] = DXGI_FORMAT_R32G32_UINT,
+			[HbGPU_Vertex_Format_UInt_32x3] = DXGI_FORMAT_R32G32B32_UINT,
+			[HbGPU_Vertex_Format_UInt_32x4] = DXGI_FORMAT_R32G32B32A32_UINT,
+			[HbGPU_Vertex_Format_UInt_16x2] = DXGI_FORMAT_R16G16_UINT,
+			[HbGPU_Vertex_Format_UInt_16x4] = DXGI_FORMAT_R16G16B16A16_UINT,
+			[HbGPU_Vertex_Format_UInt_8x4] = DXGI_FORMAT_R8G8B8A8_UINT,
+			[HbGPU_Vertex_Format_SInt_32x1] = DXGI_FORMAT_R32_SINT,
+			[HbGPU_Vertex_Format_SInt_32x2] = DXGI_FORMAT_R32G32_SINT,
+			[HbGPU_Vertex_Format_SInt_32x3] = DXGI_FORMAT_R32G32B32_SINT,
+			[HbGPU_Vertex_Format_SInt_32x4] = DXGI_FORMAT_R32G32B32A32_SINT,
+			[HbGPU_Vertex_Format_SInt_16x2] = DXGI_FORMAT_R16G16_SINT,
+			[HbGPU_Vertex_Format_SInt_16x4] = DXGI_FORMAT_R16G16B16A16_SINT,
+			[HbGPU_Vertex_Format_SInt_8x4] = DXGI_FORMAT_R8G8B8A8_SINT,
+		};
+		if ((uint32_t) attribute->format >= HbArrayLength(vertexFormats)) {
+			return HbFalse;
+		}
+		inputElementDesc->Format = vertexFormats[attribute->format];
+		inputElementDesc->InputSlot = attribute->streamIndex;
+		inputElementDesc->AlignedByteOffset = attribute->offsetInDwords << 2;
+		inputElementDesc->InstanceDataStepRate = info->vertexStreams[attribute->streamIndex].instanceStepRate;
+		inputElementDesc->InputSlotClass = inputElementDesc->InstanceDataStepRate != 0 ?
+				D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+	}
+	pipelineStateDesc.InputLayout.pInputElementDescs = inputElementDescs;
+	pipelineStateDesc.InputLayout.NumElements = info->vertexAttributeCount;
+	pipelineStateDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF;
+	switch (info->inputPrimitive) {
+	case HbGPU_DrawConfig_InputPrimitive_Triangle:
+		pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		break;
+	case HbGPU_DrawConfig_InputPrimitive_Line:
+		pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+		break;
+	case HbGPU_DrawConfig_InputPrimitive_Point:
+		pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+		break;
+	default:
+		return HbFalse;
+	}
+	pipelineStateDesc.SampleDesc.Count = 1 << info->samplesLog2;
+	return SUCCEEDED(ID3D12Device_CreateGraphicsPipelineState(
+			device->d3dDevice, &pipelineStateDesc, &IID_ID3D12PipelineState, &config->d3dPipelineState));
+}
+
+void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config) {
+	ID3D12PipelineState_Release(config->d3dPipelineState);
 }
 
 #endif

@@ -7,7 +7,7 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format) {
 	if (format >= HbGPU_Image_Format_FormatCount) {
 		return DXGI_FORMAT_UNKNOWN;
 	}
-	static const DXGI_FORMAT dxgiFormats[] = {
+	static DXGI_FORMAT const dxgiFormats[] = {
 		[HbGPU_Image_Format_8_R_UNorm] = DXGI_FORMAT_R8_UNORM,
 		[HbGPU_Image_Format_8_8_RG_UNorm] = DXGI_FORMAT_R8G8_UNORM,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -26,7 +26,7 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTypeless(HbGPU_Image_Format format) {
 	if (format >= HbGPU_Image_Format_FormatCount) {
 		return DXGI_FORMAT_UNKNOWN;
 	}
-	static const DXGI_FORMAT dxgiFormats[] = {
+	static DXGI_FORMAT const dxgiFormats[] = {
 		[HbGPU_Image_Format_8_R_UNorm] = DXGI_FORMAT_R8_TYPELESS,
 		[HbGPU_Image_Format_8_8_RG_UNorm] = DXGI_FORMAT_R8G8_TYPELESS,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = DXGI_FORMAT_R8G8B8A8_TYPELESS,

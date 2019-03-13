@@ -6,7 +6,7 @@ uint32_t HbGPU_Image_Format_ElementSize(HbGPU_Image_Format format) {
 	if (format >= HbGPU_Image_Format_FormatCount) {
 		return 0;
 	}
-	static const uint32_t sizes[] = {
+	static uint32_t const sizes[] = {
 		[HbGPU_Image_Format_8_R_UNorm] = 1,
 		[HbGPU_Image_Format_8_8_RG_UNorm] = 2,
 		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = 4,

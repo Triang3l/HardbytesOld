@@ -31,18 +31,6 @@ typedef enum HbGPU_Comparison {
 	HbGPU_Comparison_Always,       // 111
 } HbGPU_Comparison;
 
-typedef enum HbGPU_ProgramStage {
-	HbGPU_ProgramStage_Vertex,
-	HbGPU_ProgramStage_Pixel,
-	HbGPU_ProgramStage_Compute,
-} HbGPU_ProgramStage;
-typedef uint32_t HbGPU_ProgramStageBits;
-enum {
-	HbGPU_ProgramStageBits_Vertex = 1,
-	HbGPU_ProgramStageBits_Pixel = HbGPU_ProgramStageBits_Vertex << 1,
-	HbGPU_ProgramStageBits_Compute = HbGPU_ProgramStageBits_Pixel << 1,
-};
-
 /**************************************
  * Command queue types for submissions
  **************************************/
@@ -409,6 +397,8 @@ HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
 		HbGPU_Image * image, HbGPU_Image_Slice slice, HbBool readOnlyDepth, HbBool readOnlyStencil);
 HbGPU_RTReference HbGPU_RTStore_GetRT(HbGPU_RTStore * store, uint32_t rtIndex);
 
+#define HbGPU_RT_MaxCount 8
+
 /**************************
  * Presentation swap chain
  **************************/
@@ -433,6 +423,29 @@ typedef struct HbGPU_SwapChain {
 HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered);
 void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain);
+
+/******************
+ * Shader programs
+ ******************/
+
+typedef enum HbGPU_ShaderStage {
+	HbGPU_ShaderStage_Vertex,
+	HbGPU_ShaderStage_Pixel,
+	HbGPU_ShaderStage_Compute,
+} HbGPU_ShaderStage;
+typedef uint32_t HbGPU_ShaderStageBits;
+enum {
+	HbGPU_ShaderStageBits_Vertex = 1,
+	HbGPU_ShaderStageBits_Pixel = HbGPU_ShaderStageBits_Vertex << 1,
+	HbGPU_ShaderStageBits_Compute = HbGPU_ShaderStageBits_Pixel << 1,
+};
+
+typedef struct HbGPU_ShaderReference {
+	#if HbGPU_Implementation_D3D
+	void const * dxbc; // Null if the stage is not active.
+	size_t dxbcSize;
+	#endif
+} HbGPU_ShaderReference;
 
 /*****************
  * Binding layout
@@ -473,7 +486,7 @@ typedef enum HbGPU_Binding_Type {
 
 typedef struct HbGPU_Binding {
 	HbGPU_Binding_Type type;
-	HbGPU_ProgramStageBits stages; // On Direct3D, filtering works the "one stage or all stages" way.
+	HbGPU_ShaderStageBits stages; // On Direct3D, filtering works the "one stage or all stages" way.
 	union {
 		struct {
 			HbGPU_Binding_HandleRange const * ranges;
@@ -491,7 +504,7 @@ typedef struct HbGPU_Binding {
 		} constantBuffer;
 		struct {
 			HbGPU_Binding_RegisterIndex bindRegister;
-			uint32_t size; // 32-bit-aligned.
+			uint32_t sizeInDwords;
 		} smallConstants;
 	} binding;
 } HbGPU_Binding;
@@ -512,6 +525,186 @@ typedef struct HbGPU_BindingLayout {
 HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_Binding const * bindings, uint32_t bindingCount, HbBool useVertexAttributes);
 void HbGPU_BindingLayout_Destroy(HbGPU_BindingLayout * layout);
+
+/****************
+ * Vertex layout
+ ****************/
+
+typedef struct HbGPU_Vertex_Stream {
+	uint32_t stride;
+	uint32_t instanceStepRate; // 0 for per-vertex.
+} HbGPU_Vertex_Stream;
+
+typedef enum HbGPU_Vertex_Semantic {
+	HbGPU_Vertex_Semantic_Position,
+	HbGPU_Vertex_Semantic_Normal,
+	HbGPU_Vertex_Semantic_Tangent,
+	HbGPU_Vertex_Semantic_TexCoord,
+	HbGPU_Vertex_Semantic_Color,
+	HbGPU_Vertex_Semantic_BlendIndices,
+	HbGPU_Vertex_Semantic_BlendWeights,
+} HbGPU_Vertex_Semantic;
+
+typedef enum HbGPU_Vertex_Format {
+	HbGPU_Vertex_Format_Float_32x1,
+	HbGPU_Vertex_Format_Float_32x2,
+	HbGPU_Vertex_Format_Float_32x3,
+	HbGPU_Vertex_Format_Float_32x4,
+	HbGPU_Vertex_Format_Float_16x2,
+	HbGPU_Vertex_Format_Float_16x4,
+	HbGPU_Vertex_Format_Float_11_11_10,
+	HbGPU_Vertex_Format_UNorm_16x2,
+	HbGPU_Vertex_Format_UNorm_16x4,
+	HbGPU_Vertex_Format_UNorm_10_10_10_2,
+	HbGPU_Vertex_Format_UNorm_8x4,
+	HbGPU_Vertex_Format_SNorm_16x2,
+	HbGPU_Vertex_Format_SNorm_16x4,
+	HbGPU_Vertex_Format_SNorm_8x4,
+	HbGPU_Vertex_Format_UInt_32x1,
+	HbGPU_Vertex_Format_UInt_32x2,
+	HbGPU_Vertex_Format_UInt_32x3,
+	HbGPU_Vertex_Format_UInt_32x4,
+	HbGPU_Vertex_Format_UInt_16x2,
+	HbGPU_Vertex_Format_UInt_16x4,
+	HbGPU_Vertex_Format_UInt_10_10_10_2,
+	HbGPU_Vertex_Format_UInt_8x4,
+	HbGPU_Vertex_Format_SInt_32x1,
+	HbGPU_Vertex_Format_SInt_32x2,
+	HbGPU_Vertex_Format_SInt_32x3,
+	HbGPU_Vertex_Format_SInt_32x4,
+	HbGPU_Vertex_Format_SInt_16x2,
+	HbGPU_Vertex_Format_SInt_16x4,
+	HbGPU_Vertex_Format_SInt_8x4,
+} HbGPU_Vertex_Format;
+
+typedef struct HbGPU_Vertex_Attribute {
+	uint32_t streamIndex;
+	HbGPU_Vertex_Semantic semantic;
+	uint32_t semanticIndex;
+	HbGPU_Vertex_Format format;
+	uint32_t offsetInDwords;
+} HbGPU_Vertex_Attribute;
+
+/************************
+ * Drawing configuration
+ ************************/
+
+typedef enum HbGPU_DrawConfig_InputPrimitive {
+	HbGPU_DrawConfig_InputPrimitive_Triangle, // Zero (default).
+	HbGPU_DrawConfig_InputPrimitive_Line,
+	HbGPU_DrawConfig_InputPrimitive_Point,
+} HbGPU_DrawConfig_InputPrimitive;
+
+typedef enum HbGPU_DrawConfig_Stencil_Op {
+	HbGPU_DrawConfig_Stencil_Op_Keep,
+	HbGPU_DrawConfig_Stencil_Op_Zero,
+	HbGPU_DrawConfig_Stencil_Op_Replace,
+	HbGPU_DrawConfig_Stencil_Op_IncrementSaturate,
+	HbGPU_DrawConfig_Stencil_Op_DecrementSaturate,
+	HbGPU_DrawConfig_Stencil_Op_Invert,
+	HbGPU_DrawConfig_Stencil_Op_Increment,
+	HbGPU_DrawConfig_Stencil_Op_Decrement,
+} HbGPU_DrawConfig_Stencil_Op;
+
+typedef struct HbGPU_DrawConfig_Stencil_Side {
+	HbGPU_DrawConfig_Stencil_Op fail;
+	HbGPU_DrawConfig_Stencil_Op depthFail;
+	HbGPU_DrawConfig_Stencil_Op pass;
+	HbGPU_Comparison comparison;
+} HbGPU_DrawConfig_Stencil_Side;
+
+typedef struct HbGPU_DrawConfig_DepthStencilInfo {
+	HbGPU_Image_Format format;
+	HbBool depthTest;
+	HbGPU_Comparison depthComparison;
+	HbBool depthWrite;
+	HbBool stencil;
+	uint8_t stencilReadMask;
+	uint8_t stencilWriteMask;
+	HbGPU_DrawConfig_Stencil_Side stencilFront;
+	HbGPU_DrawConfig_Stencil_Side stencilBack;
+} HbGPU_DrawConfig_DepthStencilInfo;
+
+typedef enum HbGPU_DrawConfig_RT_BlendFactor {
+	HbGPU_DrawConfig_RT_BlendFactor_Zero,
+	HbGPU_DrawConfig_RT_BlendFactor_One,
+	HbGPU_DrawConfig_RT_BlendFactor_SourceColor,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusSourceColor,
+	HbGPU_DrawConfig_RT_BlendFactor_SourceAlpha,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusSourceAlpha,
+	HbGPU_DrawConfig_RT_BlendFactor_TargetColor,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusTargetColor,
+	HbGPU_DrawConfig_RT_BlendFactor_TargetAlpha,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusTargetAlpha,
+	HbGPU_DrawConfig_RT_BlendFactor_SourceAlphaSaturated,
+	HbGPU_DrawConfig_RT_BlendFactor_Constant,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusConstant,
+	HbGPU_DrawConfig_RT_BlendFactor_Source1Color,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusSource1Color,
+	HbGPU_DrawConfig_RT_BlendFactor_Source1Alpha,
+	HbGPU_DrawConfig_RT_BlendFactor_OneMinusSource1Alpha,
+} HbGPU_DrawConfig_RT_BlendFactor;
+
+typedef enum HbGPU_DrawConfig_RT_BlendOp {
+	HbGPU_DrawConfig_RT_BlendOp_Add,
+	HbGPU_DrawConfig_RT_BlendOp_Subtract,
+	HbGPU_DrawConfig_RT_BlendOp_ReverseSubtract,
+	HbGPU_DrawConfig_RT_BlendOp_Min,
+	HbGPU_DrawConfig_RT_BlendOp_Max,
+} HbGPU_DrawConfig_RT_BlendOp;
+
+typedef struct HbGPU_DrawConfig_RT {
+	HbGPU_Image_Format format;
+	HbBool blend;
+	uint8_t writeMask;
+	HbGPU_DrawConfig_RT_BlendFactor blendFactorSourceRGB;
+	HbGPU_DrawConfig_RT_BlendFactor blendFactorSourceAlpha;
+	HbGPU_DrawConfig_RT_BlendFactor blendFactorTargetRGB;
+	HbGPU_DrawConfig_RT_BlendFactor blendFactorTargetAlpha;
+	HbGPU_DrawConfig_RT_BlendOp blendOpRGB;
+	HbGPU_DrawConfig_RT_BlendOp blendOpAlpha;
+} HbGPU_DrawConfig_RT;
+
+typedef struct HbGPU_DrawConfig_Info {
+	// Pointers preferred for nested structures for easier reuse of common state parameters.
+
+	HbGPU_ShaderReference shaderVertex;
+	HbGPU_ShaderReference shaderPixel;
+	HbGPU_BindingLayout * bindingLayout;
+
+	HbGPU_DrawConfig_InputPrimitive inputPrimitive;
+
+	uint32_t vertexStreamCount;
+	uint32_t vertexAttributeCount;
+	HbGPU_Vertex_Stream const * vertexStreams;
+	HbGPU_Vertex_Attribute const * vertexAttributes;
+
+	HbBool frontCounterClockwise;
+	int32_t cullSide; // -1 - cull back faces, 0 - don't cull, 1 - cull front faces.
+	uint32_t samplesLog2;
+	HbBool wireframe;
+
+	int32_t depthBias;
+	float depthBiasClamp;
+	float depthBiasSlope;
+	HbBool depthClamp;
+
+	HbGPU_DrawConfig_DepthStencilInfo const * depthStencil; // Null if not using a depth/stencil buffer.
+
+	uint32_t rtCount;
+	HbGPU_DrawConfig_RT const * rts;
+	HbBool rtsSameBlendAndWriteMasks;
+	HbBool alphaToCoverage;
+} HbGPU_DrawConfig_Info;
+
+typedef struct HbGPU_DrawConfig {
+	#if HbGPU_Implementation_D3D
+	ID3D12PipelineState * d3dPipelineState;
+	#endif
+} HbGPU_DrawConfig;
+
+HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, HbGPU_Device * device, HbGPU_DrawConfig_Info const * info);
+void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config);
 
 /***************
  * Command list
