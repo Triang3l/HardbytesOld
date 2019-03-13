@@ -1141,4 +1141,27 @@ void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config) {
 	ID3D12PipelineState_Release(config->d3dPipelineState);
 }
 
+/****************************
+ * Computation configuration
+ ****************************/
+
+HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_ShaderReference shader, HbGPU_BindingLayout * bindingLayout) {
+	D3D12_COMPUTE_PIPELINE_STATE_DESC pipelineStateDesc = {
+		.pRootSignature = bindingLayout->d3dRootSignature,
+		.CS.pShaderBytecode = shader.dxbc,
+		.CS.BytecodeLength = shader.dxbcSize,
+	};
+	if (FAILED(ID3D12Device_CreateComputePipelineState(
+			device->d3dDevice, &pipelineStateDesc, &IID_ID3D12PipelineState, &config->d3dPipelineState))) {
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(config->d3dPipelineState, config->d3dPipelineState->lpVtbl->SetName, name);
+	return HbTrue;
+}
+
+void HbGPU_ComputeConfig_Destroy(HbGPU_ComputeConfig * config) {
+	ID3D12PipelineState_Release(config->d3dPipelineState);
+}
+
 #endif

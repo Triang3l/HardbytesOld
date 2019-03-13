@@ -706,6 +706,20 @@ typedef struct HbGPU_DrawConfig {
 HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, HbGPU_Device * device, HbGPU_DrawConfig_Info const * info);
 void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config);
 
+/****************************
+ * Computation configuration
+ ****************************/
+
+typedef struct HbGPU_ComputeConfig {
+	#if HbGPU_Implementation_D3D
+	ID3D12PipelineState * d3dPipelineState;
+	#endif
+} HbGPU_ComputeConfig;
+
+HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_ShaderReference shader, HbGPU_BindingLayout * bindingLayout);
+void HbGPU_ComputeConfig_Destroy(HbGPU_ComputeConfig * config);
+
 /***************
  * Command list
  ***************/
