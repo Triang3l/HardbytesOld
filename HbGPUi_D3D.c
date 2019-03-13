@@ -1114,7 +1114,8 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 	}
 	pipelineStateDesc.InputLayout.pInputElementDescs = inputElementDescs;
 	pipelineStateDesc.InputLayout.NumElements = info->vertexAttributeCount;
-	pipelineStateDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF;
+	pipelineStateDesc.IBStripCutValue = sizeof(HbGPU_Vertex_Index) >= sizeof(uint32_t) ?
+			D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF : D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
 	switch (info->inputPrimitive) {
 	case HbGPU_DrawConfig_InputPrimitive_Triangle:
 		pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;

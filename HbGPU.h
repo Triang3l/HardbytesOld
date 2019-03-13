@@ -585,6 +585,8 @@ typedef struct HbGPU_Vertex_Attribute {
 	uint32_t offsetInDwords;
 } HbGPU_Vertex_Attribute;
 
+typedef uint16_t HbGPU_Vertex_Index;
+
 /************************
  * Drawing configuration
  ************************/
