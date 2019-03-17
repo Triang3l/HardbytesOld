@@ -266,6 +266,12 @@ typedef struct HbGPU_Image_Slice {
 	uint32_t stencil : 1;
 } HbGPU_Image_Slice;
 
+// Helper structure to be put in other structures if needed (like render target storages).
+typedef struct HbGPU_Image_SliceReference {
+	HbGPU_Image * image;
+	HbGPU_Image_Slice slice;
+} HbGPU_Image_SliceReference;
+
 // Assumes VALID image->info!
 HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue);
@@ -375,7 +381,7 @@ void HbGPU_SamplerStore_DestroySampler(HbGPU_SamplerStore * store, uint32_t inde
 typedef struct HbGPU_RTReference {
 	#if HbGPU_Implementation_D3D
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dHandle;
-	ID3D12Resource * d3dResolveSource; // Null for non-MSAA RTs.
+	HbGPU_Image_SliceReference d3dImageRef; // For discarding and resolving.
 	#endif
 } HbGPU_RTReference;
 
@@ -385,7 +391,7 @@ typedef struct HbGPU_RTStore {
 	#if HbGPU_Implementation_D3D
 	ID3D12DescriptorHeap * d3dHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dHeapStart;
-	ID3D12Resource * * d3dResolveSources; // Null for non-MSAA RTs.
+	HbGPU_Image_SliceReference * d3dImageRefs;
 	#endif
 } HbGPU_RTStore;
 
@@ -397,7 +403,7 @@ HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
 		HbGPU_Image * image, HbGPU_Image_Slice slice, HbBool readOnlyDepth, HbBool readOnlyStencil);
 HbGPU_RTReference HbGPU_RTStore_GetRT(HbGPU_RTStore * store, uint32_t rtIndex);
 
-#define HbGPU_RT_MaxCount 8
+#define HbGPU_RT_MaxBound 8
 
 /**************************
  * Presentation swap chain
@@ -722,6 +728,42 @@ HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * n
 		HbGPU_ShaderReference shader, HbGPU_BindingLayout * bindingLayout);
 void HbGPU_ComputeConfig_Destroy(HbGPU_ComputeConfig * config);
 
+/*****************
+ * Rendering pass
+ *****************/
+
+typedef enum HbGPU_DrawPass_BeginAction {
+	HbGPU_DrawPass_BeginAction_Discard,
+	HbGPU_DrawPass_BeginAction_Clear,
+	HbGPU_DrawPass_BeginAction_Load,
+} HbGPU_DrawPass_BeginAction;
+
+typedef enum HbGPU_DrawPass_EndAction {
+	HbGPU_DrawPass_EndAction_Store,
+	HbGPU_DrawPass_EndAction_Discard,
+	// Depth/stencil resolve not supported (Direct3D 12 pre-Creators Update limitation).
+	HbGPU_DrawPass_EndAction_ResolveStore,
+	HbGPU_DrawPass_EndAction_ResolveDiscard,
+} HbGPU_DrawPass_EndAction;
+
+typedef struct HbGPU_DrawPass_Actions {
+	HbGPU_DrawPass_BeginAction beginAction;
+	HbGPU_DrawPass_EndAction endAction;
+	HbGPU_Image_ClearValue clearValue;
+	HbGPU_Image * resolveImage;
+	HbGPU_Image_Slice resolveSlice;
+} HbGPU_DrawPass_Actions;
+
+typedef struct HbGPU_DrawPass_Info {
+	uint32_t colorRTCount;
+	HbBool hasDepthStencilRT;
+	HbGPU_RTReference colorRTs[HbGPU_RT_MaxBound];
+	HbGPU_RTReference depthStencilRT;
+	HbGPU_DrawPass_Actions colorActions[HbGPU_RT_MaxBound];
+	HbGPU_DrawPass_Actions depthActions;
+	HbGPU_DrawPass_Actions stencilActions;
+} HbGPU_DrawPass_Info;
+
 /***************
  * Command list
  ***************/
@@ -732,6 +774,7 @@ typedef struct HbGPU_CmdList {
 	ID3D12CommandAllocator * d3dCommandAllocator;
 	ID3D12CommandList * d3dSubmissionCommandList;
 	ID3D12GraphicsCommandList * d3dGraphicsCommandList;
+	HbGPU_DrawPass_Info d3dCurrentDrawPass;
 	#endif
 } HbGPU_CmdList;
 
@@ -740,5 +783,7 @@ void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
+
+void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo);
 
 #endif
