@@ -1,5 +1,6 @@
 #include "HbGPUi_D3D.h"
 #if HbGPU_Implementation_D3D
+#include "HbFeedback.h"
 
 HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue) {
 	cmdList->queue = queue;
@@ -43,9 +44,20 @@ void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList) {
 	ID3D12CommandAllocator_Release(cmdList->d3dCommandAllocator);
 }
 
-void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList) {
+void HbGPU_CmdList_Begin(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore) {
 	ID3D12CommandAllocator_Reset(cmdList->d3dCommandAllocator);
 	ID3D12GraphicsCommandList_Reset(cmdList->d3dGraphicsCommandList, cmdList->d3dCommandAllocator, HbNull);
+	ID3D12DescriptorHeap * descriptorHeaps[2];
+	uint32_t descriptorHeapCount = 0;
+	if (handleStore != HbNull) {
+		descriptorHeaps[descriptorHeapCount++] = handleStore->d3dHeap;
+	}
+	if (samplerStore != HbNull) {
+		descriptorHeaps[descriptorHeapCount++] = samplerStore->d3dHeap;
+	}
+	if (descriptorHeapCount != 0) {
+		ID3D12GraphicsCommandList_SetDescriptorHeaps(cmdList->d3dGraphicsCommandList, descriptorHeapCount, descriptorHeaps);
+	}
 }
 
 void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList) {
@@ -79,6 +91,84 @@ void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdList
 					&d3dCommandLists[queueIndex * cmdListCount]);
 		}
 	}
+}
+
+void HbGPU_CmdList_SetBindingStores(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore) {
+	ID3D12DescriptorHeap * descriptorHeaps[2];
+	uint32_t descriptorHeapCount = 0;
+	if (handleStore != HbNull) {
+		descriptorHeaps[descriptorHeapCount++] = handleStore->d3dHeap;
+	}
+	if (samplerStore != HbNull) {
+		descriptorHeaps[descriptorHeapCount++] = samplerStore->d3dHeap;
+	}
+	ID3D12GraphicsCommandList_SetDescriptorHeaps(cmdList->d3dGraphicsCommandList, descriptorHeapCount, descriptorHeaps);
+}
+
+void HbGPU_CmdList_Barrier(HbGPU_CmdList * cmdList, uint32_t count, HbGPU_CmdList_Barrier_Info const * infos) {
+	if (count == 0) {
+		return;
+	}
+	D3D12_RESOURCE_BARRIER * d3dBarriers = HbStackAlloc(count * sizeof(D3D12_RESOURCE_BARRIER));
+	uint32_t d3dBarrierCount = 0; // Can be smaller, for instance, in case old state == new state.
+	for (uint32_t barrierIndex = 0; barrierIndex < count; ++barrierIndex) {
+		HbGPU_CmdList_Barrier_Info const * info = &infos[barrierIndex];
+		D3D12_RESOURCE_BARRIER * d3dBarrier = &d3dBarriers[d3dBarrierCount];
+		switch (info->type) {
+		case HbGPU_CmdList_Barrier_Type_BufferUsageSwitch:
+			d3dBarrier->Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			d3dBarrier->Transition.pResource = info->barrier.bufferUsageSwitch.buffer->d3dResource;
+			d3dBarrier->Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			d3dBarrier->Transition.StateBefore = HbGPUi_D3D_Buffer_Usage_ToStates(info->barrier.bufferUsageSwitch.usageOld);
+			d3dBarrier->Transition.StateAfter = HbGPUi_D3D_Buffer_Usage_ToStates(info->barrier.bufferUsageSwitch.usageNew);
+			if (d3dBarrier->Transition.StateBefore == d3dBarrier->Transition.StateAfter) {
+				continue;
+			}
+			break;
+		case HbGPU_CmdList_Barrier_Type_ImageUsageSwitch:
+			d3dBarrier->Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			d3dBarrier->Transition.pResource = info->barrier.imageUsageSwitch.image->d3dResource;
+			if (info->barrier.imageUsageSwitch.isSingleSlice) {
+				d3dBarrier->Transition.Subresource = HbGPUi_D3D_Image_Slice_ToSubresource(
+						&info->barrier.imageUsageSwitch.image->info, info->barrier.imageUsageSwitch.slice);
+			} else {
+				d3dBarrier->Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			}
+			d3dBarrier->Transition.StateBefore = HbGPUi_D3D_Image_Usage_ToStates(info->barrier.imageUsageSwitch.usageOld);
+			d3dBarrier->Transition.StateAfter = HbGPUi_D3D_Image_Usage_ToStates(info->barrier.imageUsageSwitch.usageNew);
+			if (d3dBarrier->Transition.StateBefore == d3dBarrier->Transition.StateAfter) {
+				continue;
+			}
+			break;
+		case HbGPU_CmdList_Barrier_Type_BufferEditCommit:
+			d3dBarrier->Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			d3dBarrier->UAV.pResource = info->barrier.bufferUsageSwitch.buffer->d3dResource;
+			break;
+		case HbGPU_CmdList_Barrier_Type_ImageEditCommit:
+			d3dBarrier->Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			d3dBarrier->UAV.pResource = info->barrier.imageUsageSwitch.image->d3dResource;
+			break;
+		default:
+			HbFeedback_Assert(HbFalse, "HbGPU_CmdList_Barrier", "Unknown barrier type %u.", (uint32_t) info->type);
+			continue;
+		}
+		switch (info->time) {
+		case HbGPU_CmdList_Barrier_Time_Start:
+			d3dBarrier->Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
+			break;
+		case HbGPU_CmdList_Barrier_Time_Finish:
+			d3dBarrier->Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
+			break;
+		default:
+			d3dBarrier->Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			break;
+		}
+		++d3dBarrierCount;
+	}
+	if (d3dBarrierCount == 0) {
+		return;
+	}
+	ID3D12GraphicsCommandList_ResourceBarrier(cmdList->d3dGraphicsCommandList, d3dBarrierCount, d3dBarriers);
 }
 
 void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo) {

@@ -734,7 +734,7 @@ void HbGPU_ComputeConfig_Destroy(HbGPU_ComputeConfig * config);
 
 typedef enum HbGPU_DrawPass_BeginAction {
 	HbGPU_DrawPass_BeginAction_Discard,
-	HbGPU_DrawPass_BeginAction_Clear,
+	HbGPU_DrawPass_BeginAction_Clear, // This is preferred for depth, as it may re-enable compression.
 	HbGPU_DrawPass_BeginAction_Load,
 } HbGPU_DrawPass_BeginAction;
 
@@ -780,10 +780,53 @@ typedef struct HbGPU_CmdList {
 
 HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue);
 void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_BeginRecording(HbGPU_CmdList * cmdList);
+// Since handle/sampler stores must be set in every command list binding anything, they can be specified here as a shortcut.
+void HbGPU_CmdList_Begin(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore);
 void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
 
+// Pass-independent setup.
+void HbGPU_CmdList_SetBindingStores(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore);
+
+// Pass-independent. Prefer to put adjacent barriers that are independent from each other in a single barrier command.
+typedef enum HbGPU_CmdList_Barrier_Type {
+	HbGPU_CmdList_Barrier_Type_BufferUsageSwitch,
+	HbGPU_CmdList_Barrier_Type_ImageUsageSwitch,
+	HbGPU_CmdList_Barrier_Type_BufferEditCommit,
+	HbGPU_CmdList_Barrier_Type_ImageEditCommit,
+} HbGPU_CmdList_Barrier_Type;
+typedef enum HbGPU_CmdList_Barrier_Time {
+	HbGPU_CmdList_Barrier_Time_Immediate, // Zero (set by default). Block the pipeline until it's done.
+	HbGPU_CmdList_Barrier_Time_Start, // Request things like RT decompression, but don't block yet.
+	HbGPU_CmdList_Barrier_Time_Finish, // Complete an outgoing Start barrier.
+} HbGPU_CmdList_Barrier_Time;
+typedef struct HbGPU_CmdList_Barrier_Info {
+	HbGPU_CmdList_Barrier_Type type;
+	HbGPU_CmdList_Barrier_Time time;
+	union {
+		struct {
+			HbGPU_Buffer * buffer;
+			HbGPU_Buffer_Usage usageOld;
+			HbGPU_Buffer_Usage usageNew;
+		} bufferUsageSwitch;
+		struct {
+			HbGPU_Image * image;
+			HbBool isSingleSlice; // If set, `slice`'s usage will be switched, if not, all slices'.
+			HbGPU_Image_Slice slice;
+			HbGPU_Buffer_Usage usageOld;
+			HbGPU_Buffer_Usage usageNew;
+		} imageUsageSwitch;
+		struct {
+			HbGPU_Buffer * buffer;
+		} bufferEditCommit;
+		struct {
+			HbGPU_Image * image;
+		} imageEditCommit;
+	} barrier;
+} HbGPU_CmdList_Barrier_Info;
+void HbGPU_CmdList_Barrier(HbGPU_CmdList * cmdList, uint32_t count, HbGPU_CmdList_Barrier_Info const * infos);
+
 void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo);
+void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList);
 
 #endif
