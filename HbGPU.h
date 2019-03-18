@@ -728,7 +728,7 @@ typedef struct HbGPU_ComputeConfig {
 } HbGPU_ComputeConfig;
 
 HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * name, HbGPU_Device * device,
-		HbGPU_ShaderReference shader, HbGPU_BindingLayout * bindingLayout);
+		HbGPU_ShaderReference shader, uint32_t const groupSize[3], HbGPU_BindingLayout * bindingLayout);
 void HbGPU_ComputeConfig_Destroy(HbGPU_ComputeConfig * config);
 
 /*****************
@@ -847,7 +847,17 @@ void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const 
 void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_DrawSetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax);
 void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height);
+void HbGPU_CmdList_DrawSetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference);
+void HbGPU_CmdList_DrawSetBlendConstantFactor(HbGPU_CmdList * cmdList, float const factor[4]);
 void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config);
+typedef enum HbGPU_CmdList_Primitive {
+	HbGPU_CmdList_Primitive_TriangleList,
+	HbGPU_CmdList_Primitive_TriangleStrip,
+	HbGPU_CmdList_Primitive_LineList,
+	HbGPU_CmdList_Primitive_LineStrip,
+	HbGPU_CmdList_Primitive_PointList,
+} HbGPU_CmdList_Primitive;
+void HbGPU_CmdList_DrawSetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primitive primitive);
 typedef struct HbGPU_CmdList_VertexStream {
 	HbGPU_Buffer * buffer;
 	uint32_t offset;
@@ -856,5 +866,9 @@ typedef struct HbGPU_CmdList_VertexStream {
 void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
 		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams);
 void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes);
+void HbGPU_CmdList_DrawUnindexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
+		uint32_t instanceCount, uint32_t instanceBase);
+void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
+		uint32_t instanceCount, uint32_t instanceBase);
 
 #endif

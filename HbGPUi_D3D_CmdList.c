@@ -326,9 +326,32 @@ void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t
 	ID3D12GraphicsCommandList_RSSetScissorRects(cmdList->d3dGraphicsCommandList, 1, &scissor);
 }
 
+void HbGPU_CmdList_DrawSetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference) {
+	ID3D12GraphicsCommandList_OMSetStencilRef(cmdList->d3dGraphicsCommandList, reference);
+}
+
+void HbGPU_CmdList_DrawSetBlendConstantFactor(HbGPU_CmdList * cmdList, float const factor[4]) {
+	ID3D12GraphicsCommandList_OMSetBlendFactor(cmdList->d3dGraphicsCommandList, factor);
+}
+
 void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config) {
 	cmdList->d3dCurrentDrawConfig = config;
 	ID3D12GraphicsCommandList_SetPipelineState(cmdList->d3dGraphicsCommandList, config->d3dPipelineState);
+}
+
+void HbGPU_CmdList_DrawSetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primitive primitive) {
+	D3D_PRIMITIVE_TOPOLOGY d3dTopology;
+	switch (primitive) {
+	case HbGPU_CmdList_Primitive_TriangleList: d3dTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST; break;
+	case HbGPU_CmdList_Primitive_TriangleStrip: d3dTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP; break;
+	case HbGPU_CmdList_Primitive_LineList: d3dTopology = D3D_PRIMITIVE_TOPOLOGY_LINELIST; break;
+	case HbGPU_CmdList_Primitive_LineStrip: d3dTopology = D3D10_PRIMITIVE_TOPOLOGY_LINESTRIP; break;
+	case HbGPU_CmdList_Primitive_PointList: d3dTopology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST; break;
+	default:
+		HbFeedback_Assert(HbFalse, "HbGPU_CmdList_DrawSetPrimitive", "Unknwown primitive type %u.", (uint32_t) primitive);
+		return;
+	}
+	ID3D12GraphicsCommandList_IASetPrimitiveTopology(cmdList->d3dGraphicsCommandList, primitive);
 }
 
 void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
@@ -351,6 +374,17 @@ void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer
 		.Format = sizeof(HbGPU_Vertex_Index) >= sizeof(uint32_t) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT,
 	};
 	ID3D12GraphicsCommandList_IASetIndexBuffer(cmdList->d3dGraphicsCommandList, &d3dIndexBuffer);
+}
+
+void HbGPU_CmdList_DrawUnindexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
+		uint32_t instanceCount, uint32_t instanceBase) {
+	ID3D12GraphicsCommandList_DrawInstanced(cmdList->d3dGraphicsCommandList, vertexCount, instanceCount, vertexIDBase, instanceBase);
+}
+
+void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
+		uint32_t instanceCount, uint32_t instanceBase) {
+	ID3D12GraphicsCommandList_DrawIndexedInstanced(cmdList->d3dGraphicsCommandList,
+			indexCount, instanceCount, indexFirst, vertexIDBase, instanceBase);
 }
 
 #endif

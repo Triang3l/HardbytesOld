@@ -1591,7 +1591,7 @@ void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config) {
  ****************************/
 
 HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * name, HbGPU_Device * device,
-		HbGPU_ShaderReference shader, HbGPU_BindingLayout * bindingLayout) {
+		HbGPU_ShaderReference shader, uint32_t const groupSize[3], HbGPU_BindingLayout * bindingLayout) {
 	D3D12_COMPUTE_PIPELINE_STATE_DESC pipelineStateDesc = {
 		.pRootSignature = bindingLayout->d3dRootSignature,
 		.CS.pShaderBytecode = shader.dxbc,
