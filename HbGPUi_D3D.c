@@ -754,7 +754,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 	if (bindingCount > HbGPU_BindingLayout_MaxBindings) {
 		return HbFalse;
 	}
-	memset(layout->d3dRootSlots, UINT8_MAX, sizeof(layout->d3dRootSlots));
+	memset(layout->d3dRootParameterIndices, UINT8_MAX, sizeof(layout->d3dRootParameterIndices));
 	D3D12_ROOT_PARAMETER parameters[HbGPU_BindingLayout_MaxBindings];
 	uint32_t parameterCount = 0;
 	uint32_t staticSamplerCount = 0;
@@ -796,7 +796,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 				d3dRange->RegisterSpace = 0;
 				d3dRange->OffsetInDescriptorsFromTableStart = range->handleOffset;
 			}
-			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
 			break;
 		case HbGPU_Binding_Type_SamplerRangeSet: {
 			uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
@@ -823,18 +823,18 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 				d3dRange->RegisterSpace = 0;
 				d3dRange->OffsetInDescriptorsFromTableStart = range->samplerOffset;
 			}
-			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
 			break;
 		} case HbGPU_Binding_Type_ConstantBuffer:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 			parameter->Descriptor.RegisterSpace = 0;
 			parameter->Descriptor.ShaderRegister = binding->binding.constantBuffer.bindRegister.cbufferResourceEdit;
-			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
 			break;
 		case HbGPU_Binding_Type_SmallConstants:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 			parameter->Constants.Num32BitValues = binding->binding.smallConstants.sizeInDwords;
-			layout->d3dRootSlots[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
 			break;
 		default:
 			return HbFalse;

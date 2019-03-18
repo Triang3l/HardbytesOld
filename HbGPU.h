@@ -113,7 +113,7 @@ enum {
 	HbGPU_Buffer_Usage_CPUToGPU = HbGPU_Buffer_Usage_CrossQueue << 1,
 };
 
-// Nvidia (and Direct3D 12) requirement.
+// Nvidia (and Direct3D 12) requirement. Alignment of bound constant buffers.
 #define HbGPU_Buffer_ConstantsAlignment 256
 
 typedef struct HbGPU_Buffer {
@@ -292,6 +292,7 @@ typedef struct HbGPU_HandleStore {
 
 HbBool HbGPU_HandleStore_Init(HbGPU_HandleStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t handleCount);
 void HbGPU_HandleStore_Destroy(HbGPU_HandleStore * store);
+// The offset must be aligned to HbGPU_Buffer_ConstantsAlignment, the size will be aligned internally.
 void HbGPU_HandleStore_SetConstantBuffer(HbGPU_HandleStore * store, uint32_t index,
 		HbGPU_Buffer * buffer, uint32_t offset, uint32_t size);
 void HbGPU_HandleStore_SetTexelResourceBuffer(HbGPU_HandleStore * store, uint32_t index,
@@ -523,7 +524,7 @@ typedef struct HbGPU_BindingLayout {
 	ID3D12RootSignature * d3dRootSignature;
 	// Mappings of HbGPU_Binding indices to root signature indices (skipping static samplers).
 	// UINT32_MAX for unmapped (including static samplers).
-	uint32_t d3dRootSlots[HbGPU_BindingLayout_MaxBindings];
+	uint32_t d3dRootParameterIndices[HbGPU_BindingLayout_MaxBindings];
 	#endif
 } HbGPU_BindingLayout;
 
@@ -683,6 +684,7 @@ typedef struct HbGPU_DrawConfig_Info {
 	HbGPU_DrawConfig_InputPrimitive inputPrimitive;
 
 	uint32_t vertexStreamCount;
+	uint32_t vertexStreamFirstBufferRegister; // For binding on Metal.
 	uint32_t vertexAttributeCount;
 	HbGPU_Vertex_Stream const * vertexStreams;
 	HbGPU_Vertex_Attribute const * vertexAttributes;
@@ -762,6 +764,7 @@ typedef struct HbGPU_DrawPass_Info {
 	HbGPU_DrawPass_Actions colorActions[HbGPU_RT_MaxBound];
 	HbGPU_DrawPass_Actions depthActions;
 	HbGPU_DrawPass_Actions stencilActions;
+	HbBool allowBufferImageEditing;
 } HbGPU_DrawPass_Info;
 
 /***************
@@ -774,6 +777,10 @@ typedef struct HbGPU_CmdList {
 	ID3D12CommandAllocator * d3dCommandAllocator;
 	ID3D12CommandList * d3dSubmissionCommandList;
 	ID3D12GraphicsCommandList * d3dGraphicsCommandList;
+	HbGPU_HandleStore * d3dCurrentHandleStore;
+	HbGPU_SamplerStore * d3dCurrentSamplerStore;
+	HbGPU_BindingLayout * d3dCurrentBindingLayout;
+	HbBool d3dIsDrawing; // Whether is in a draw pass (outside means bind things to compute).
 	HbGPU_DrawPass_Info d3dCurrentDrawPass;
 	#endif
 } HbGPU_CmdList;
@@ -826,7 +833,18 @@ typedef struct HbGPU_CmdList_Barrier_Info {
 } HbGPU_CmdList_Barrier_Info;
 void HbGPU_CmdList_Barrier(HbGPU_CmdList * cmdList, uint32_t count, HbGPU_CmdList_Barrier_Info const * infos);
 
+// Binding things either in a graphics or in a compute pass.
+void HbGPU_CmdList_BindSetLayout(HbGPU_CmdList * cmdList, HbGPU_BindingLayout * layout); // Bindings are considered invalid after this.
+void HbGPU_CmdList_BindHandles(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t handleOffsetInStore);
+void HbGPU_CmdList_BindSamplers(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t samplerOffsetInStore);
+// The offset must be aligned to HbGPU_Buffer_ConstantsAlignment, the size will be aligned internally.
+void HbGPU_CmdList_BindConstantBuffer(HbGPU_CmdList * cmdList, uint32_t bindingIndex, HbGPU_Buffer * buffer, uint32_t offset, uint32_t size);
+void HbGPU_CmdList_BindSmallConstants(HbGPU_CmdList * cmdList, uint32_t bindingIndex, void const * data, uint32_t sizeInDwords);
+
 void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo);
 void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_DrawSetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax);
+void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height);
+void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config);
 
 #endif

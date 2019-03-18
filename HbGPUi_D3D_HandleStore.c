@@ -30,7 +30,7 @@ void HbGPU_HandleStore_SetConstantBuffer(HbGPU_HandleStore * store, uint32_t ind
 		HbGPU_Buffer * buffer, uint32_t offset, uint32_t size) {
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {
 		.BufferLocation = buffer->d3dGPUAddress + offset,
-		.SizeInBytes = size,
+		.SizeInBytes = HbAlign(size, (uint32_t) HbGPU_Buffer_ConstantsAlignment),
 	};
 	ID3D12Device_CreateConstantBufferView(store->device->d3dDevice, &cbvDesc,
 			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
