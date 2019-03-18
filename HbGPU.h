@@ -871,4 +871,13 @@ void HbGPU_CmdList_DrawUnindexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, 
 void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase);
 
+void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList);
+#if HbGPU_Implementation_D3D
+#define HbGPU_CmdList_ComputeEnd(cmdList) {}
+#else
+void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList);
+#endif
+void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config);
+void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ);
+
 #endif

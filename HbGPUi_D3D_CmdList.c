@@ -387,4 +387,17 @@ void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uin
 			indexCount, instanceCount, indexFirst, vertexIDBase, instanceBase);
 }
 
+void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList) {
+	HbFeedback_Assert(!cmdList->d3dIsDrawing, "HbGPU_CmdList_ComputeBegin", "Drawing pass must be ended before computing.");
+	cmdList->d3dIsDrawing = HbFalse;
+}
+
+void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config) {
+	ID3D12GraphicsCommandList_SetPipelineState(cmdList->d3dGraphicsCommandList, config->d3dPipelineState);
+}
+
+void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ) {
+	ID3D12GraphicsCommandList_Dispatch(cmdList->d3dGraphicsCommandList, groupsX, groupsY, groupsZ);
+}
+
 #endif
