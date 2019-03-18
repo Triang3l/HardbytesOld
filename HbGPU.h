@@ -538,7 +538,7 @@ void HbGPU_BindingLayout_Destroy(HbGPU_BindingLayout * layout);
  ****************/
 
 typedef struct HbGPU_Vertex_Stream {
-	uint32_t stride;
+	uint32_t strideInDwords;
 	uint32_t instanceStepRate; // 0 for per-vertex.
 } HbGPU_Vertex_Stream;
 
@@ -710,6 +710,7 @@ typedef struct HbGPU_DrawConfig_Info {
 typedef struct HbGPU_DrawConfig {
 	#if HbGPU_Implementation_D3D
 	ID3D12PipelineState * d3dPipelineState;
+	uint32_t d3dVertexStreamStridesInDwords[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
 	#endif
 } HbGPU_DrawConfig;
 
@@ -782,6 +783,7 @@ typedef struct HbGPU_CmdList {
 	HbGPU_BindingLayout * d3dCurrentBindingLayout;
 	HbBool d3dIsDrawing; // Whether is in a draw pass (outside means bind things to compute).
 	HbGPU_DrawPass_Info d3dCurrentDrawPass;
+	HbGPU_DrawConfig * d3dCurrentDrawConfig;
 	#endif
 } HbGPU_CmdList;
 
@@ -846,5 +848,12 @@ void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_DrawSetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax);
 void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height);
 void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config);
+typedef struct HbGPU_CmdList_VertexStream {
+	HbGPU_Buffer * buffer;
+	uint32_t offset;
+	uint32_t size;
+} HbGPU_CmdList_VertexStream;
+void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
+		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams);
 
 #endif

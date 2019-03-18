@@ -327,7 +327,21 @@ void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t
 }
 
 void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config) {
+	cmdList->d3dCurrentDrawConfig = config;
 	ID3D12GraphicsCommandList_SetPipelineState(cmdList->d3dGraphicsCommandList, config->d3dPipelineState);
+}
+
+void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
+		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams) {
+	D3D12_VERTEX_BUFFER_VIEW d3dVertexBuffers[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+	for (uint32_t streamIndex = 0; streamIndex < streamCount; ++streamIndex) {
+		HbGPU_CmdList_VertexStream const * stream = &streams[streamIndex];
+		D3D12_VERTEX_BUFFER_VIEW * d3dVertexBuffer = &d3dVertexBuffers[streamIndex];
+		d3dVertexBuffer->BufferLocation = stream->buffer->d3dGPUAddress + stream->offset;
+		d3dVertexBuffer->SizeInBytes = stream->size;
+		d3dVertexBuffer->StrideInBytes = cmdList->d3dCurrentDrawConfig->d3dVertexStreamStridesInDwords[firstStream + streamIndex] * sizeof(uint32_t);
+	}
+	ID3D12GraphicsCommandList_IASetVertexBuffers(cmdList->d3dGraphicsCommandList, firstStream, streamCount, d3dVertexBuffers);
 }
 
 #endif

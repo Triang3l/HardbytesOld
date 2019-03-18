@@ -1421,7 +1421,8 @@ static D3D12_STENCIL_OP HbGPUi_D3D_DrawConfig_Stencil_Op_ToD3D(HbGPU_DrawConfig_
 }
 
 HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, HbGPU_Device * device, HbGPU_DrawConfig_Info const * info) {
-	if (info->vertexAttributeCount > D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT ||
+	if (info->vertexStreamCount > D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT ||
+		info->vertexAttributeCount > D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT ||
 		info->rtCount > D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT) {
 		return HbFalse;
 	}
@@ -1496,6 +1497,10 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 					(D3D12_COMPARISON_FUNC) (D3D12_COMPARISON_FUNC_NEVER + depthStencil->stencilBack.comparison);
 		}
 		pipelineStateDesc.DSVFormat = HbGPUi_D3D_Image_Format_ToTyped(depthStencil->format);
+	}
+	memset(config->d3dVertexStreamStridesInDwords, 0, sizeof(config->d3dVertexStreamStridesInDwords));
+	for (uint32_t vertexStreamIndex = 0; vertexStreamIndex < info->vertexStreamCount; ++vertexStreamIndex) {
+		config->d3dVertexStreamStridesInDwords[vertexStreamIndex] = info->vertexStreams[vertexStreamIndex].strideInDwords;
 	}
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs[D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT];
 	for (uint32_t attributeIndex = 0; attributeIndex < info->vertexAttributeCount; ++attributeIndex) {
