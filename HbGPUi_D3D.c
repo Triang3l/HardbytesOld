@@ -1,6 +1,7 @@
 #include "HbGPUi_D3D.h"
 #if HbGPU_Implementation_D3D
 #include "HbBit.h"
+#include "HbFeedback.h"
 #include <dxgidebug.h>
 
 /****************
@@ -361,6 +362,443 @@ void HbGPU_Buffer_Unmap(HbGPU_Buffer * buffer, uint32_t writeStart, uint32_t wri
 	}
 	D3D12_RANGE writeRange = { .Begin = writeStart, .End = writeStart + writeLength };
 	ID3D12Resource_Unmap(buffer->d3dResource, 0, &writeRange);
+}
+
+/********
+ * Image
+ ********/
+
+DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format) {
+	if (format >= HbGPU_Image_Format_FormatCount) {
+		return DXGI_FORMAT_UNKNOWN;
+	}
+	static DXGI_FORMAT const dxgiFormats[] = {
+		[HbGPU_Image_Format_8_R_UNorm] = DXGI_FORMAT_R8_UNORM,
+		[HbGPU_Image_Format_8_8_RG_UNorm] = DXGI_FORMAT_R8G8_UNORM,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = DXGI_FORMAT_R8G8B8A8_UNORM,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+		[HbGPU_Image_Format_32_UInt] = DXGI_FORMAT_R32_UINT,
+		[HbGPU_Image_Format_32_Float] = DXGI_FORMAT_R32_FLOAT,
+		[HbGPU_Image_Format_D32] = DXGI_FORMAT_D32_FLOAT,
+		[HbGPU_Image_Format_D32_S8] = DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
+	};
+	HbFeedback_StaticAssert(HbArrayLength(dxgiFormats) == HbGPU_Image_Format_FormatCount,
+			"All known image formats must be mapped in HbGPUi_D3D_Image_Format_ToTyped.");
+	return dxgiFormats[(uint32_t) format];
+}
+
+DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTypeless(HbGPU_Image_Format format) {
+	if (format >= HbGPU_Image_Format_FormatCount) {
+		return DXGI_FORMAT_UNKNOWN;
+	}
+	static DXGI_FORMAT const dxgiFormats[] = {
+		[HbGPU_Image_Format_8_R_UNorm] = DXGI_FORMAT_R8_TYPELESS,
+		[HbGPU_Image_Format_8_8_RG_UNorm] = DXGI_FORMAT_R8G8_TYPELESS,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = DXGI_FORMAT_R8G8B8A8_TYPELESS,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = DXGI_FORMAT_R8G8B8A8_TYPELESS,
+		[HbGPU_Image_Format_32_UInt] = DXGI_FORMAT_R32_TYPELESS,
+		[HbGPU_Image_Format_32_Float] = DXGI_FORMAT_R32_TYPELESS,
+		[HbGPU_Image_Format_D32] = DXGI_FORMAT_R32_TYPELESS,
+		[HbGPU_Image_Format_D32_S8] = DXGI_FORMAT_R32G8X24_TYPELESS,
+	};
+	HbFeedback_StaticAssert(HbArrayLength(dxgiFormats) == HbGPU_Image_Format_FormatCount,
+			"All known image formats must be mapped in HbGPUi_D3D_Image_Format_ToTypeless.");
+	return dxgiFormats[(uint32_t) format];
+}
+
+DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTexture(HbGPU_Image_Format format, HbBool stencil) {
+	switch (format) {
+	case HbGPU_Image_Format_D32:
+		return DXGI_FORMAT_R32_FLOAT;
+	case HbGPU_Image_Format_D32_S8:
+		return stencil ? DXGI_FORMAT_X32_TYPELESS_G8X24_UINT : DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+	}
+	return HbGPUi_D3D_Image_Format_ToTyped(format);
+}
+
+void HbGPUi_D3D_Image_Info_ToResourceDesc(D3D12_RESOURCE_DESC * desc, HbGPU_Image_Info const * info) {
+	switch (info->dimensions) {
+	case HbGPU_Image_Dimensions_1D:
+	case HbGPU_Image_Dimensions_1DArray:
+		desc->Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
+		break;
+	case HbGPU_Image_Dimensions_3D:
+		desc->Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+		break;
+	default:
+		desc->Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		break;
+	}
+	desc->Alignment = (info->samplesLog2 > 0) ? D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT :
+			D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+	desc->Width = info->width;
+	desc->Height = info->height;
+	desc->DepthOrArraySize = info->depthOrLayers;
+	if (HbGPU_Image_Dimensions_AreCube(info->dimensions)) {
+		desc->DepthOrArraySize *= 6;
+	}
+	desc->MipLevels = info->mips;
+	if (HbGPU_Image_Format_IsDepth(info->format) &&
+		!(info->usageOptions & HbGPU_Image_UsageOptions_DepthTestOnly)) {
+		desc->Format = HbGPUi_D3D_Image_Format_ToTypeless(info->format);
+	} else {
+		desc->Format = HbGPUi_D3D_Image_Format_ToTyped(info->format);
+	}
+	desc->SampleDesc.Count = 1 << info->samplesLog2;
+	desc->SampleDesc.Quality = 0;
+	desc->Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	desc->Flags = D3D12_RESOURCE_FLAG_NONE;
+	if (info->usageOptions & HbGPU_Image_UsageOptions_ShaderEditable) {
+		desc->Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	}
+	if (info->usageOptions & HbGPU_Image_UsageOptions_ColorRenderable) {
+		desc->Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	}
+	if (info->usageOptions & HbGPU_Image_UsageOptions_DepthTestOnly) {
+		desc->Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+	}
+}
+
+D3D12_RESOURCE_STATES HbGPUi_D3D_Image_Usage_ToStates(HbGPU_Image_Usage usage) {
+	switch (usage) {
+	case HbGPU_Image_Usage_ColorRT:
+		return D3D12_RESOURCE_STATE_RENDER_TARGET;
+	case HbGPU_Image_Usage_DepthTest:
+		return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	case HbGPU_Image_Usage_ShaderEdit:
+		return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	case HbGPU_Image_Usage_CopyTarget:
+		return D3D12_RESOURCE_STATE_COPY_DEST;
+	case HbGPU_Image_Usage_ResolveTarget:
+		return D3D12_RESOURCE_STATE_RESOLVE_DEST;
+	case HbGPU_Image_Usage_Present:
+		return D3D12_RESOURCE_STATE_PRESENT;
+	case HbGPU_Image_Usage_CrossQueue:
+		return D3D12_RESOURCE_STATE_COMMON;
+	}
+	D3D12_RESOURCE_STATES states = (D3D12_RESOURCE_STATES) 0;
+	if (usage & HbGPU_Image_Usage_Read_TextureNonPS) {
+		states |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+	}
+	if (usage & HbGPU_Image_Usage_Read_TexturePS) {
+		states |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	}
+	if (usage & HbGPU_Image_Usage_Read_DepthReject) {
+		states |= D3D12_RESOURCE_STATE_DEPTH_READ;
+	}
+	if (usage & HbGPU_Image_Usage_Read_CopySource) {
+		states |= D3D12_RESOURCE_STATE_COPY_SOURCE;
+	}
+	if (usage & HbGPU_Image_Usage_Read_ResolveSource) {
+		states |= D3D12_RESOURCE_STATE_RESOLVE_SOURCE;
+	}
+	return states;
+}
+
+HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue) {
+	D3D12_HEAP_PROPERTIES heapProperties = { 0 };
+	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	D3D12_RESOURCE_DESC resourceDesc;
+	HbGPUi_D3D_Image_Info_ToResourceDesc(&resourceDesc, &image->info);
+	D3D12_CLEAR_VALUE d3dOptimizedClearValue;
+	if (optimalClearValue != HbNull) {
+		// In case the resource description has a typeless format.
+		d3dOptimizedClearValue.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
+		if (HbGPU_Image_Format_IsDepth(image->info.format)) {
+			d3dOptimizedClearValue.DepthStencil.Depth = optimalClearValue->depthStencil.depth;
+			d3dOptimizedClearValue.DepthStencil.Stencil = optimalClearValue->depthStencil.stencil;
+		} else {
+			d3dOptimizedClearValue.Color[0] = optimalClearValue->color[0];
+			d3dOptimizedClearValue.Color[1] = optimalClearValue->color[1];
+			d3dOptimizedClearValue.Color[2] = optimalClearValue->color[2];
+			d3dOptimizedClearValue.Color[3] = optimalClearValue->color[3];
+		}
+	}
+	if (FAILED(ID3D12Device_CreateCommittedResource(device->d3dDevice, &heapProperties, D3D12_HEAP_FLAG_NONE,
+			&resourceDesc, HbGPUi_D3D_Image_Usage_ToStates(initialUsage),
+			optimalClearValue != HbNull ? &d3dOptimizedClearValue : HbNull, &IID_ID3D12Resource, &image->d3dResource))) {
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(image->d3dResource, image->d3dResource->lpVtbl->SetName, name);
+	return HbTrue;
+}
+
+void HbGPUi_D3D_Image_WrapSwapChainBuffer(HbGPU_Image * image, HbTextU8 const * name,
+		ID3D12Resource * resource, HbGPU_Image_Format format) {
+	D3D12_RESOURCE_DESC resourceDesc;
+	((HbGPUi_D3D_ID3D12Resource_GetDesc) (resource->lpVtbl->GetDesc))(resource, &resourceDesc);
+	image->info.format = format;
+	image->info.dimensions = HbGPU_Image_Dimensions_2D;
+	image->info.width = (uint32_t) resourceDesc.Width;
+	image->info.height = resourceDesc.Height;
+	image->info.depthOrLayers = 1;
+	image->info.mips = 1;
+	image->info.samplesLog2 = (uint32_t) HbBit_HighestOneU32(resourceDesc.SampleDesc.Count);
+	image->info.usageOptions = HbGPU_Image_UsageOptions_ColorRenderable;
+	image->d3dResource = resource;
+}
+
+void HbGPU_Image_Destroy(HbGPU_Image * image) {
+	ID3D12Resource_Release(image->d3dResource);
+}
+
+/*******************************************************
+ * Storage of binding descriptors of buffers and images
+ *******************************************************/
+
+HbBool HbGPU_HandleStore_Init(HbGPU_HandleStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t handleCount) {
+	store->device = device;
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+		.NumDescriptors = handleCount,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+		.NodeMask = 0,
+	};
+	if (FAILED(ID3D12Device_CreateDescriptorHeap(device->d3dDevice, &heapDesc, &IID_ID3D12DescriptorHeap, &store->d3dHeap))) {
+		return HbFalse;
+	}
+	HbGPUi_D3D_SetObjectName(store->d3dHeap, store->d3dHeap->lpVtbl->SetName, name);
+	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
+			store->d3dHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
+					store->d3dHeap, &store->d3dHeapCPUStart);
+	((HbGPUi_D3D_ID3D12DescriptorHeap_GetGPUDescriptorHandleForHeapStart)
+			store->d3dHeap->lpVtbl->GetGPUDescriptorHandleForHeapStart)(
+					store->d3dHeap, &store->d3dHeapGPUStart);
+	return HbTrue;
+}
+
+void HbGPU_HandleStore_Destroy(HbGPU_HandleStore * store) {
+	ID3D12DescriptorHeap_Release(store->d3dHeap);
+}
+
+void HbGPU_HandleStore_SetConstantBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, uint32_t offset, uint32_t size) {
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {
+		.BufferLocation = buffer->d3dGPUAddress + offset,
+		.SizeInBytes = HbAlign(size, (uint32_t) HbGPU_Buffer_ConstantsAlignment),
+	};
+	ID3D12Device_CreateConstantBufferView(store->device->d3dDevice, &cbvDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
+}
+
+void HbGPU_HandleStore_SetTexelResourceBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, HbGPU_Image_Format format, uint32_t offsetInTexels, uint32_t texelCount) {
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {
+		.Format = HbGPUi_D3D_Image_Format_ToTexture(format, HbFalse),
+		.ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+		.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+		.Buffer.FirstElement = offsetInTexels,
+		.Buffer.NumElements = texelCount,
+		.Buffer.StructureByteStride = HbGPU_Image_Format_ElementSize(format),
+		.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE,
+	};
+	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, buffer->d3dResource, &srvDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
+}
+
+void HbGPU_HandleStore_SetStructResourceBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, uint32_t structSize, uint32_t offsetInStructs, uint32_t structCount) {
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {
+		.Format = DXGI_FORMAT_UNKNOWN,
+		.ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+		.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+		.Buffer.FirstElement = offsetInStructs,
+		.Buffer.NumElements = structCount,
+		.Buffer.StructureByteStride = structSize,
+		.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE,
+	};
+	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, buffer->d3dResource, &srvDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
+}
+
+void HbGPU_HandleStore_SetEditBuffer(HbGPU_HandleStore * store, uint32_t index,
+		HbGPU_Buffer * buffer, HbGPU_Image_Format format, uint32_t offsetInTexels, uint32_t texelCount) {
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {
+		.Format = HbGPUi_D3D_Image_Format_ToTexture(format, HbFalse),
+		.ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
+		.Buffer.FirstElement = offsetInTexels,
+		.Buffer.NumElements = texelCount,
+		.Buffer.StructureByteStride = HbGPU_Image_Format_ElementSize(format),
+		.Buffer.CounterOffsetInBytes = 0,
+		.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE,
+	};
+	ID3D12Device_CreateUnorderedAccessView(store->device->d3dDevice, buffer->d3dResource, HbNull, &uavDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
+}
+
+void HbGPU_HandleStore_SetTexture(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image * image, HbBool stencil) {
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	srvDesc.Format = HbGPUi_D3D_Image_Format_ToTexture(image->info.format, stencil);
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	switch (image->info.dimensions) {
+	case HbGPU_Image_Dimensions_1D:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+		srvDesc.Texture1D.MostDetailedMip = 0;
+		srvDesc.Texture1D.MipLevels = image->info.mips;
+		srvDesc.Texture1D.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_1DArray:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+		srvDesc.Texture1DArray.MostDetailedMip = 0;
+		srvDesc.Texture1DArray.MipLevels = image->info.mips;
+		srvDesc.Texture1DArray.FirstArraySlice = 0;
+		srvDesc.Texture1DArray.ArraySize = image->info.depthOrLayers;
+		srvDesc.Texture1DArray.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_2D:
+		if (image->info.samplesLog2 > 0) {
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMS;
+		} else {
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Texture2D.MostDetailedMip = 0;
+			srvDesc.Texture2D.MipLevels = image->info.mips;
+			srvDesc.Texture2D.PlaneSlice = stencil ? 1 : 0;
+			srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+		}
+		break;
+	case HbGPU_Image_Dimensions_2DArray:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+		srvDesc.Texture2DArray.MostDetailedMip = 0;
+		srvDesc.Texture2DArray.MipLevels = image->info.mips;
+		srvDesc.Texture2DArray.FirstArraySlice = 0;
+		srvDesc.Texture2DArray.ArraySize = image->info.depthOrLayers;
+		srvDesc.Texture2DArray.PlaneSlice = stencil ? 1 : 0;
+		srvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_Cube:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		srvDesc.TextureCubeArray.MostDetailedMip = 0;
+		srvDesc.TextureCubeArray.MipLevels = image->info.mips;
+		srvDesc.TextureCubeArray.First2DArrayFace = 0;
+		srvDesc.TextureCubeArray.NumCubes = image->info.depthOrLayers;
+		srvDesc.TextureCubeArray.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_CubeArray:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
+		srvDesc.TextureCube.MostDetailedMip = 0;
+		srvDesc.TextureCube.MipLevels = image->info.mips;
+		srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_3D:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+		srvDesc.Texture3D.MostDetailedMip = 0;
+		srvDesc.Texture3D.MipLevels = image->info.mips;
+		srvDesc.Texture3D.ResourceMinLODClamp = 0.0f;
+		break;
+	default:
+		return;
+	}
+	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, image->d3dResource, &srvDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
+}
+
+void HbGPU_HandleStore_SetNullTexture(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image_Dimensions dimensions, HbBool multisample) {
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	switch (dimensions) {
+	case HbGPU_Image_Dimensions_1D:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+		srvDesc.Texture1D.MostDetailedMip = 0;
+		srvDesc.Texture1D.MipLevels = 1;
+		srvDesc.Texture1D.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_1DArray:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+		srvDesc.Texture1DArray.MostDetailedMip = 0;
+		srvDesc.Texture1DArray.MipLevels = 1;
+		srvDesc.Texture1DArray.FirstArraySlice = 0;
+		srvDesc.Texture1DArray.ArraySize = 1;
+		srvDesc.Texture1DArray.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_2D:
+		if (multisample) {
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMS;
+		} else {
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Texture2D.MostDetailedMip = 0;
+			srvDesc.Texture2D.MipLevels = 1;
+			srvDesc.Texture2D.PlaneSlice = 0;
+			srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+		}
+		break;
+	case HbGPU_Image_Dimensions_2DArray:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+		srvDesc.Texture2DArray.MostDetailedMip = 0;
+		srvDesc.Texture2DArray.MipLevels = 1;
+		srvDesc.Texture2DArray.FirstArraySlice = 0;
+		srvDesc.Texture2DArray.ArraySize = 1;
+		srvDesc.Texture2DArray.PlaneSlice = 0;
+		srvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_Cube:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		srvDesc.TextureCubeArray.MostDetailedMip = 0;
+		srvDesc.TextureCubeArray.MipLevels = 1;
+		srvDesc.TextureCubeArray.First2DArrayFace = 0;
+		srvDesc.TextureCubeArray.NumCubes = 1;
+		srvDesc.TextureCubeArray.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_CubeArray:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
+		srvDesc.TextureCube.MostDetailedMip = 0;
+		srvDesc.TextureCube.MipLevels = 1;
+		srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+		break;
+	case HbGPU_Image_Dimensions_3D:
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+		srvDesc.Texture3D.MostDetailedMip = 0;
+		srvDesc.Texture3D.MipLevels = 1;
+		srvDesc.Texture3D.ResourceMinLODClamp = 0.0f;
+		break;
+	default:
+		return;
+	}
+	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, HbNull, &srvDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
+}
+
+void HbGPU_HandleStore_SetEditImage(HbGPU_HandleStore * store, uint32_t index, HbGPU_Image * image, uint32_t mip) {
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc;
+	uavDesc.Format = HbGPUi_D3D_Image_Format_ToTexture(image->info.format, HbFalse);
+	switch (image->info.dimensions) {
+	case HbGPU_Image_Dimensions_1D:
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
+		uavDesc.Texture1D.MipSlice = mip;
+		break;
+	case HbGPU_Image_Dimensions_1DArray:
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
+		uavDesc.Texture1DArray.MipSlice = mip;
+		uavDesc.Texture1DArray.FirstArraySlice = 0;
+		uavDesc.Texture1DArray.ArraySize = image->info.depthOrLayers;
+		break;
+	case HbGPU_Image_Dimensions_2D:
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uavDesc.Texture2D.MipSlice = mip;
+		uavDesc.Texture2D.PlaneSlice = 0;
+		break;
+	case HbGPU_Image_Dimensions_2DArray:
+	case HbGPU_Image_Dimensions_Cube:
+	case HbGPU_Image_Dimensions_CubeArray:
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+		uavDesc.Texture2DArray.MipSlice = mip;
+		uavDesc.Texture2DArray.PlaneSlice = 0;
+		uavDesc.Texture2DArray.FirstArraySlice = 0;
+		uavDesc.Texture2DArray.ArraySize = image->info.depthOrLayers;
+		if (HbGPU_Image_Dimensions_AreCube(image->info.dimensions)) {
+			uavDesc.Texture2DArray.ArraySize *= 6;
+		}
+		break;
+	case HbGPU_Image_Dimensions_3D:
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
+		uavDesc.Texture3D.MipSlice = mip;
+		uavDesc.Texture3D.FirstWSlice = 0;
+		uavDesc.Texture3D.WSize = image->info.depthOrLayers;
+		break;
+	}
+	ID3D12Device_CreateUnorderedAccessView(store->device->d3dDevice, image->d3dResource, HbNull, &uavDesc,
+			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
 }
 
 /**********
