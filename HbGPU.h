@@ -855,5 +855,6 @@ typedef struct HbGPU_CmdList_VertexStream {
 } HbGPU_CmdList_VertexStream;
 void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
 		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams);
+void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes);
 
 #endif

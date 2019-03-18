@@ -344,4 +344,13 @@ void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
 	ID3D12GraphicsCommandList_IASetVertexBuffers(cmdList->d3dGraphicsCommandList, firstStream, streamCount, d3dVertexBuffers);
 }
 
+void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes) {
+	D3D12_INDEX_BUFFER_VIEW d3dIndexBuffer = {
+		.BufferLocation = buffer->d3dGPUAddress + offset,
+		.SizeInBytes = sizeInBytes,
+		.Format = sizeof(HbGPU_Vertex_Index) >= sizeof(uint32_t) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT,
+	};
+	ID3D12GraphicsCommandList_IASetIndexBuffer(cmdList->d3dGraphicsCommandList, &d3dIndexBuffer);
+}
+
 #endif
