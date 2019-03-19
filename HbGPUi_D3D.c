@@ -1465,6 +1465,7 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 		HbGPU_DrawConfig_RT const * rt = &info->rts[rtIndex];
 		if (rtIndex == 0 || !info->rtsSameBlendAndWriteMasks) {
 			D3D12_RENDER_TARGET_BLEND_DESC * blendDesc = &pipelineStateDesc.BlendState.RenderTarget[rtIndex];
+			blendDesc->RenderTargetWriteMask = rt->unmodifiedComponentsMask ^ 0xF;
 			if (rt->blend) {
 				blendDesc->BlendEnable = TRUE;
 				blendDesc->SrcBlend = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorSourceRGB, HbFalse);
@@ -1473,7 +1474,6 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 				blendDesc->SrcBlendAlpha = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorSourceAlpha, HbTrue);
 				blendDesc->DestBlendAlpha = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorTargetAlpha, HbTrue);
 				blendDesc->BlendOpAlpha = HbGPUi_D3D_DrawConfig_RT_BlendOp_ToD3D(rt->blendOpAlpha);
-				blendDesc->RenderTargetWriteMask = rt->unmodifiedComponentsMask ^ 0xF;
 			}
 		}
 		pipelineStateDesc.RTVFormats[rtIndex] = HbGPUi_D3D_Image_Format_ToTyped(rt->format);
