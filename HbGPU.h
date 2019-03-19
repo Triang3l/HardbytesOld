@@ -367,12 +367,7 @@ typedef struct HbGPU_SamplerStore {
 HbBool HbGPU_SamplerStore_Init(HbGPU_SamplerStore * store, HbTextU8 const * name, HbGPU_Device * device, uint32_t samplerCount);
 void HbGPU_SamplerStore_Destroy(HbGPU_SamplerStore * store);
 HbBool HbGPU_SamplerStore_CreateSampler(HbGPU_SamplerStore * store, uint32_t index, HbGPU_Sampler_Info info);
-#if HbGPU_Implementation_D3D
-// Not needed - samplers are purely descriptors.
-#define HbGPU_SamplerStore_DestroySampler(store, index) {}
-#else
 void HbGPU_SamplerStore_DestroySampler(HbGPU_SamplerStore * store, uint32_t index);
-#endif
 
 /************************
  * Render target storage
@@ -421,15 +416,22 @@ typedef struct HbGPU_SwapChain {
 	uint32_t bufferCount;
 	HbGPU_Image images[3]; // May be modified during presentation (implementation-dependent).
 	#if HbGPU_Implementation_D3D
-	IDXGISwapChain3 * dxgiSwapChain;
+	IDXGISwapChain3 * d3dSwapChain;
 	ID3D12DescriptorHeap * d3dRTVHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dRTVHeapStart;
+	uint32_t d3dCurrentBackBufferIndex;
 	#endif
 } HbGPU_SwapChain;
 
 HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered);
 void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain);
+// Call when going to draw anything to the swap chain to update the current image.
+void HbGPU_SwapChain_StartComposition(HbGPU_SwapChain * chain);
+HbGPU_RTReference HbGPU_SwapChain_GetCurrentRT(HbGPU_SwapChain * chain); // Call StartComposition prior to this.
+HbGPU_Image * HbGPU_SwapChain_GetCurrentImage(HbGPU_SwapChain * chain); // Call StartComposition prior to this.
+// Presents the current image and closes StartComposition.
+void HbGPU_SwapChain_FinishComposition(HbGPU_SwapChain * chain, uint32_t vsyncDivisor);
 
 /******************
  * Shader programs
@@ -872,11 +874,7 @@ void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uin
 		uint32_t instanceCount, uint32_t instanceBase);
 
 void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList);
-#if HbGPU_Implementation_D3D
-#define HbGPU_CmdList_ComputeEnd(cmdList) {}
-#else
 void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList);
-#endif
 void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config);
 void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ);
 

@@ -392,6 +392,8 @@ void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList) {
 	cmdList->d3dIsDrawing = HbFalse;
 }
 
+void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList) {}
+
 void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config) {
 	ID3D12GraphicsCommandList_SetPipelineState(cmdList->d3dGraphicsCommandList, config->d3dPipelineState);
 }

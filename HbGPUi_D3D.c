@@ -881,6 +881,10 @@ HbBool HbGPU_SamplerStore_CreateSampler(HbGPU_SamplerStore * store, uint32_t ind
 	return HbTrue;
 }
 
+void HbGPU_SamplerStore_DestroySampler(HbGPU_SamplerStore * store, uint32_t index) {
+	// Not needed - samplers are purely descriptors.
+}
+
 void HbGPUi_D3D_Sampler_ToStatic(HbGPU_Sampler_Info info, D3D12_STATIC_SAMPLER_DESC * samplerDesc) {
 	samplerDesc->Filter = HbGPUi_D3D_Sampler_Filter_ToD3D(info.filter, info.isComparison, &samplerDesc->MaxAnisotropy);
 	samplerDesc->AddressU = HbGPUi_D3D_Sampler_Wrap_ToD3D(info.wrapS);
@@ -1103,12 +1107,12 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 	#else
 	#error No HbGPU_SwapChain_Init for the target application model.
 	#endif
-	if (FAILED(IDXGISwapChain1_QueryInterface(swapChain1, &IID_IDXGISwapChain3, &chain->dxgiSwapChain))) {
+	if (FAILED(IDXGISwapChain1_QueryInterface(swapChain1, &IID_IDXGISwapChain3, &chain->d3dSwapChain))) {
 		IDXGISwapChain1_Release(swapChain1);
 		return HbFalse;
 	}
 	IDXGISwapChain1_Release(swapChain1);
-	HbGPUi_D3D_SetDXGIObjectName(chain->dxgiSwapChain, chain->dxgiSwapChain->lpVtbl->SetPrivateData, name);
+	HbGPUi_D3D_SetDXGIObjectName(chain->d3dSwapChain, chain->d3dSwapChain->lpVtbl->SetPrivateData, name);
 	ID3D12Device * d3dDevice = device->d3dDevice;
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {
 		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
@@ -1117,7 +1121,7 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 		.NodeMask = 0,
 	};
 	if (FAILED(ID3D12Device_CreateDescriptorHeap(d3dDevice, &rtvHeapDesc, &IID_ID3D12DescriptorHeap, &chain->d3dRTVHeap))) {
-		IDXGISwapChain3_Release(chain->dxgiSwapChain);
+		IDXGISwapChain3_Release(chain->d3dSwapChain);
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetSubObjectName(chain->d3dRTVHeap, chain->d3dRTVHeap->lpVtbl->SetName, name, "d3dRTVHeap");
@@ -1134,13 +1138,13 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 	for (uint32_t bufferIndex = 0; bufferIndex < bufferCount; ++bufferIndex) {
 		HbGPU_Image * image = &chain->images[bufferIndex];
 		ID3D12Resource * imageResource;
-		if (FAILED(IDXGISwapChain3_GetBuffer(chain->dxgiSwapChain, bufferIndex, &IID_ID3D12Resource, &imageResource))) {
+		if (FAILED(IDXGISwapChain3_GetBuffer(chain->d3dSwapChain, bufferIndex, &IID_ID3D12Resource, &imageResource))) {
 			for (uint32_t releaseBufferIndex = 0; releaseBufferIndex < bufferIndex; ++releaseBufferIndex) {
 				ID3D12Resource * releaseImage = chain->images[releaseBufferIndex].d3dResource;
 				ID3D12Resource_Release(releaseImage);
 			}
 			ID3D12DescriptorHeap_Release(chain->d3dRTVHeap);
-			IDXGISwapChain3_Release(chain->dxgiSwapChain);
+			IDXGISwapChain3_Release(chain->d3dSwapChain);
 			return HbFalse;
 		}
 		imageName[sizeof(imageName) - 3] = '0' + bufferIndex;
@@ -1159,6 +1163,7 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 		};
 		ID3D12Device_CreateRenderTargetView(d3dDevice, imageResource, &rtvDesc, rtvHandle);
 	}
+	chain->d3dCurrentBackBufferIndex = IDXGISwapChain3_GetCurrentBackBufferIndex(chain->d3dSwapChain);
 	return HbTrue;
 }
 
@@ -1167,7 +1172,27 @@ void HbGPU_SwapChain_Destroy(HbGPU_SwapChain * chain) {
 		ID3D12Resource_Release(chain->images[bufferIndex].d3dResource);
 	}
 	ID3D12DescriptorHeap_Release(chain->d3dRTVHeap);
-	IDXGISwapChain3_Release(chain->dxgiSwapChain);
+	IDXGISwapChain3_Release(chain->d3dSwapChain);
+}
+
+void HbGPU_SwapChain_StartComposition(HbGPU_SwapChain * chain) {
+	// Not needed - FinishComposition updates the current buffer index.
+}
+
+HbGPU_RTReference HbGPU_SwapChain_GetCurrentRT(HbGPU_SwapChain * chain) {
+	HbGPU_RTReference reference = {
+		.d3dHandle.ptr = chain->d3dRTVHeapStart.ptr + chain->d3dCurrentBackBufferIndex * chain->device->d3dRTVDescriptorSize,
+		.d3dImageRef.image = &chain->images[chain->d3dCurrentBackBufferIndex],
+	};
+	return reference;
+}
+
+HbGPU_Image * HbGPU_SwapChain_GetCurrentImage(HbGPU_SwapChain * chain) {
+	return &chain->images[chain->d3dCurrentBackBufferIndex];
+}
+
+void HbGPU_SwapChain_FinishComposition(HbGPU_SwapChain * chain, uint32_t vsyncDivisor) {
+	IDXGISwapChain3_Present(chain->d3dSwapChain, vsyncDivisor, 0);
 }
 
 /*****************
