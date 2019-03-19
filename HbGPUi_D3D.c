@@ -1473,7 +1473,7 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 				blendDesc->SrcBlendAlpha = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorSourceAlpha, HbTrue);
 				blendDesc->DestBlendAlpha = HbGPUi_D3D_DrawConfig_RT_BlendFactor_ToD3D(rt->blendFactorTargetAlpha, HbTrue);
 				blendDesc->BlendOpAlpha = HbGPUi_D3D_DrawConfig_RT_BlendOp_ToD3D(rt->blendOpAlpha);
-				blendDesc->RenderTargetWriteMask = rt->writeMask;
+				blendDesc->RenderTargetWriteMask = rt->unmodifiedComponentsMask ^ 0xF;
 			}
 		}
 		pipelineStateDesc.RTVFormats[rtIndex] = HbGPUi_D3D_Image_Format_ToTyped(rt->format);

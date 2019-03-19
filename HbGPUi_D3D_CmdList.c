@@ -352,7 +352,7 @@ void HbGPU_CmdList_DrawSetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primi
 		HbFeedback_Assert(HbFalse, "HbGPU_CmdList_DrawSetPrimitive", "Unknwown primitive type %u.", (uint32_t) primitive);
 		return;
 	}
-	ID3D12GraphicsCommandList_IASetPrimitiveTopology(cmdList->d3dGraphicsCommandList, primitive);
+	ID3D12GraphicsCommandList_IASetPrimitiveTopology(cmdList->d3dGraphicsCommandList, d3dTopology);
 }
 
 void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
@@ -377,7 +377,7 @@ void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer
 	ID3D12GraphicsCommandList_IASetIndexBuffer(cmdList->d3dGraphicsCommandList, &d3dIndexBuffer);
 }
 
-void HbGPU_CmdList_DrawUnindexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
+void HbGPU_CmdList_DrawNonIndexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase) {
 	ID3D12GraphicsCommandList_DrawInstanced(cmdList->d3dGraphicsCommandList, vertexCount, instanceCount, vertexIDBase, instanceBase);
 }

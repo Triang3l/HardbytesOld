@@ -667,7 +667,7 @@ typedef enum HbGPU_DrawConfig_RT_BlendOp {
 typedef struct HbGPU_DrawConfig_RT {
 	HbGPU_Image_Format format;
 	HbBool blend;
-	uint8_t writeMask;
+	uint8_t unmodifiedComponentsMask;
 	HbGPU_DrawConfig_RT_BlendFactor blendFactorSourceRGB;
 	HbGPU_DrawConfig_RT_BlendFactor blendFactorSourceAlpha;
 	HbGPU_DrawConfig_RT_BlendFactor blendFactorTargetRGB;
@@ -847,6 +847,7 @@ void HbGPU_CmdList_BindSmallConstants(HbGPU_CmdList * cmdList, uint32_t bindingI
 
 void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo);
 void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList);
+// Width and height must be non-negative, maximum depth must be bigger than the minimum! The latter is a Direct3D 12 restriction on Nvidia.
 void HbGPU_CmdList_DrawSetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax);
 void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height);
 void HbGPU_CmdList_DrawSetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference);
@@ -868,7 +869,7 @@ typedef struct HbGPU_CmdList_VertexStream {
 void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
 		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams);
 void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes);
-void HbGPU_CmdList_DrawUnindexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
+void HbGPU_CmdList_DrawNonIndexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase);
 void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase);
