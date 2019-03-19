@@ -1193,6 +1193,7 @@ HbGPU_Image * HbGPU_SwapChain_GetCurrentImage(HbGPU_SwapChain * chain) {
 
 void HbGPU_SwapChain_FinishComposition(HbGPU_SwapChain * chain, uint32_t vsyncDivisor) {
 	IDXGISwapChain3_Present(chain->d3dSwapChain, vsyncDivisor, 0);
+	chain->d3dCurrentBackBufferIndex = IDXGISwapChain3_GetCurrentBackBufferIndex(chain->d3dSwapChain);
 }
 
 /*****************
