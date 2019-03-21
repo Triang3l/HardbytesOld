@@ -232,6 +232,8 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_Cos(HbMath_F32x4 x) {
 // X1, X2, Y1, Y2 -> sin(X1), sin(X2), cos(Y1), cos(Y2). For two sines/cosines, call with X1 == Y1, X2 == Y2.
 HbForceInline HbMath_F32x4 HbMath_F32x4_SinCosX2_Loaded(HbMath_F32x4 x, HbMath_F32x4 piConstants,
 		HbMath_F32x4 sinConstants1, HbMath_F32x4 cosConstants1, HbMath_F32x4 sinCosConstants2) {
+	// Map in [-pi, pi].
+	x = HbMath_F32x4_AnglesToPlusMinusPi_Loaded(x, piConstants);
 	// Map in [-pi/2, pi/2] with sin(y) = sin(x), cos(y) = (inLeftHalf ? -1 : 1) * cos(x).
 	HbMath_F32x4 xAbs = HbMath_F32x4_Absolute(x);
 	HbMath_F32x4 xSigns = HbMath_F32x4_AndNot(x, xAbs);
