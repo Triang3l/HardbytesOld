@@ -229,11 +229,42 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_Cos(HbMath_F32x4 x) {
 			HbMath_F32x4_LoadAligned(HbMath_F32x4_Cos_Constants1), HbMath_F32x4_LoadAligned(HbMath_F32x4_SinCos_Constants2));
 }
 
-HbForceInline void HbMath_F32x4_SinCos_Loaded(HbMath_F32x4 x, HbMath_F32x4 * sine, HbMath_F32x4 * cosine,
+// X1, X2, Y1, Y2 -> sin(X1), sin(X2), cos(Y1), cos(Y2). For two sines/cosines, call with X1 == Y1, X2 == Y2.
+HbForceInline HbMath_F32x4 HbMath_F32x4_SinCosX2_Loaded(HbMath_F32x4 x, HbMath_F32x4 piConstants,
+		HbMath_F32x4 sinConstants1, HbMath_F32x4 cosConstants1, HbMath_F32x4 sinCosConstants2) {
+	// Map in [-pi/2, pi/2] with sin(y) = sin(x), cos(y) = (inLeftHalf ? -1 : 1) * cos(x).
+	HbMath_F32x4 xAbs = HbMath_F32x4_Absolute(x);
+	HbMath_F32x4 xSigns = HbMath_F32x4_AndNot(x, xAbs);
+	HbMath_F32x4 xReflected = HbMath_F32x4_Subtract(HbMath_F32x4_Or(HbMath_F32x4_ReplicateX(piConstants), xSigns), x);
+	HbMath_F32x4 inLeftHalf = HbMath_F32x4_CompareGreater(xAbs, HbMath_F32x4_ReplicateY(piConstants));
+	x = HbMath_F32x4_Select(inLeftHalf, xReflected, x);
+	HbMath_F32x4 x2 = HbMath_F32x4_Multiply(x, x);
+	// Compute polynomial approximations.
+	#if HbPlatform_CPU_x86
+	HbMath_F32x4 result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(1, 1, 1, 1)),
+			_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(0, 0, 0, 0)), x2);
+	result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(2, 2, 2, 2)), result, x2);
+	result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(3, 3, 3, 3)), result, x2);
+	result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinCosConstants2, sinCosConstants2, _MM_SHUFFLE(1, 0, 1, 0)), result, x2);
+	HbMath_F32x4 ones = HbMath_F32x4_ReplicateZ(sinCosConstants2);
+	result = HbMath_F32x4_MultiplyAdd(ones, result, x2);
+	result = HbMath_F32x4_Multiply(result,
+			_mm_shuffle_ps(x, HbMath_F32x4_Select(inLeftHalf, HbMath_F32x4_ReplicateW(sinCosConstants2), ones), _MM_SHUFFLE(3, 2, 1, 0)));
+	#else
+	#error No shuffles for the target CPU in HbMath_F32x4_SinCosX2_Loaded.
+	#endif
+	return result;
+}
+HbForceInline HbMath_F32x4 HbMath_F32x4_SinCosX2(HbMath_F32x4 x) {
+	HbMath_F32x4_SinCosX2_Loaded(x, HbMath_F32x4_LoadAligned(HbMath_F32x4_PiConstants), HbMath_F32x4_LoadAligned(HbMath_F32x4_Sin_Constants1),
+			HbMath_F32x4_LoadAligned(HbMath_F32x4_Cos_Constants1), HbMath_F32x4_LoadAligned(HbMath_F32x4_SinCos_Constants2));
+}
+
+HbForceInline void HbMath_F32x4_SinCosX4_Loaded(HbMath_F32x4 x, HbMath_F32x4 * sine, HbMath_F32x4 * cosine,
 		HbMath_F32x4 piConstants, HbMath_F32x4 sinConstants1, HbMath_F32x4 cosConstants1, HbMath_F32x4 sinCosConstants2) {
 	// Map in [-pi, pi].
 	x = HbMath_F32x4_AnglesToPlusMinusPi_Loaded(x, piConstants);
-	// Map in [-pi/2, pi/2] with sin(y) = cos(x), cos(y) = (inLeftHalf ? -1 : 1) * cos(x).
+	// Map in [-pi/2, pi/2] with sin(y) = sin(x), cos(y) = (inLeftHalf ? -1 : 1) * cos(x).
 	HbMath_F32x4 xAbs = HbMath_F32x4_Absolute(x);
 	HbMath_F32x4 xSigns = HbMath_F32x4_AndNot(x, xAbs);
 	HbMath_F32x4 xReflected = HbMath_F32x4_Subtract(HbMath_F32x4_Or(HbMath_F32x4_ReplicateX(piConstants), xSigns), x);
@@ -258,8 +289,8 @@ HbForceInline void HbMath_F32x4_SinCos_Loaded(HbMath_F32x4 x, HbMath_F32x4 * sin
 	result = HbMath_F32x4_Multiply(result, HbMath_F32x4_Select(inLeftHalf, HbMath_F32x4_ReplicateW(sinCosConstants2), ones));
 	*cosine = result;
 }
-HbForceInline void HbMath_F32x4_SinCos(HbMath_F32x4 x, HbMath_F32x4 * sine, HbMath_F32x4 * cosine) {
-	HbMath_F32x4_SinCos_Loaded(x, sine, cosine, HbMath_F32x4_LoadAligned(HbMath_F32x4_PiConstants), HbMath_F32x4_LoadAligned(HbMath_F32x4_Sin_Constants1),
+HbForceInline void HbMath_F32x4_SinCosX4(HbMath_F32x4 x, HbMath_F32x4 * sine, HbMath_F32x4 * cosine) {
+	HbMath_F32x4_SinCosX4_Loaded(x, sine, cosine, HbMath_F32x4_LoadAligned(HbMath_F32x4_PiConstants), HbMath_F32x4_LoadAligned(HbMath_F32x4_Sin_Constants1),
 			HbMath_F32x4_LoadAligned(HbMath_F32x4_Cos_Constants1), HbMath_F32x4_LoadAligned(HbMath_F32x4_SinCos_Constants2));
 }
 
