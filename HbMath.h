@@ -277,7 +277,7 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_SinCosX2_Loaded(HbMath_F32x4 x, HbMath_F
 	return result;
 }
 HbForceInline HbMath_F32x4 HbMath_F32x4_SinCosX2(HbMath_F32x4 x) {
-	HbMath_F32x4_SinCosX2_Loaded(x, HbMath_F32x4_LoadAligned(HbMath_F32x4_PiConstants), HbMath_F32x4_LoadAligned(HbMath_F32x4_Sin_Constants1),
+	return HbMath_F32x4_SinCosX2_Loaded(x, HbMath_F32x4_LoadAligned(HbMath_F32x4_PiConstants), HbMath_F32x4_LoadAligned(HbMath_F32x4_Sin_Constants1),
 			HbMath_F32x4_LoadAligned(HbMath_F32x4_Cos_Constants1), HbMath_F32x4_LoadAligned(HbMath_F32x4_SinCos_Constants2));
 }
 
