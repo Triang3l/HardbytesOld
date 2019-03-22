@@ -1291,12 +1291,14 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 			break;
 		} case HbGPU_Binding_Type_ConstantBuffer:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-			parameter->Descriptor.RegisterSpace = 0;
 			parameter->Descriptor.ShaderRegister = binding->binding.constantBuffer.bindRegister.cbufferResourceEdit;
+			parameter->Descriptor.RegisterSpace = 0;
 			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
 			break;
 		case HbGPU_Binding_Type_SmallConstants:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+			parameter->Constants.ShaderRegister = binding->binding.smallConstants.bindRegister.cbufferResourceEdit;
+			parameter->Constants.RegisterSpace = 0;
 			parameter->Constants.Num32BitValues = binding->binding.smallConstants.sizeInDwords;
 			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
 			break;
