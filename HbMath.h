@@ -93,6 +93,11 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_ReplicateW(HbMath_F32x4 v) { return _mm_
 #define HbMath_S32x4_ReplicateW(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(3, 3, 3, 3))
 #define HbMath_U32x4_ReplicateW(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(3, 3, 3, 3))
 
+#define HbMath_F32x4_StoreX _mm_store_ss
+#define HbMath_F32x4_StoreY(p, v) _mm_store_ss(p, HbMath_F32x4_ReplicateY(v))
+#define HbMath_F32x4_StoreZ(p, v) _mm_store_ss(p, HbMath_F32x4_ReplicateZ(v))
+#define HbMath_F32x4_StoreW(p, v) _mm_store_ss(p, HbMath_F32x4_ReplicateW(v))
+
 #define HbMath_F32x4_BitsAsS32x4 _mm_castps_si128
 #define HbMath_F32x4_BitsAsU32x4 _mm_castps_si128
 #define HbMath_S32x4_BitsAsF32x4 _mm_castsi128_ps
@@ -151,10 +156,24 @@ HbForceInline HbMath_S32x4 HbMath_S32x4_Select(HbMath_S32x4 mask, HbMath_S32x4 a
 #define HbMath_F32x4_Max _mm_max_ps
 #define HbMath_F32x4_Negate(v) HbMath_F32x4_Subtract(HbMath_F32x4_Zero, v)
 HbForceInline HbMath_F32x4 HbMath_F32x4_Absolute(HbMath_F32x4 v) { return HbMath_F32x4_Max(v, HbMath_F32x4_Negate(v)); }
+#define HbMath_F32x4_InverseCoarse _mm_rcp_ps
+#define HbMath_F32x4_InverseFine(v) _mm_div_ps(HbMath_F32x4_LoadReplicated(1.0f), v)
+#define HbMath_F32x4_DivideCoarse(a, b) HbMath_F32x4_Multiply(a, HbMath_F32x4_InverseCoarse(b))
+#define HbMath_F32x4_DivideFine _mm_div_ps
+#define HbMath_F32x4_InverseSqrtCoarse _mm_rsqrt_ps
+#define HbMath_F32x4_InverseSqrtFine(v) HbMath_F32x4_InverseFine(_mm_sqrt_ps(v))
+HbForceInline HbMath_F32x4 HbMath_F32x4_SqrtCoarse(HbMath_F32x4 v) { return HbMath_F32x4_Multiply(v, HbMath_F32x4_InverseSqrtCoarse(v)); }
+#define HbMath_F32x4_SqrtFine _mm_sqrt_ps
+
+HbForceInline float HbMath_F32_InverseCoarse(float f) { float result; _mm_store_ss(&result, _mm_rcp_ss(_mm_set_ss(f))); return result; }
+HbForceInline float HbMath_F32_InverseSqrtCoarse(float f) { float result; _mm_store_ss(&result, _mm_rsqrt_ss(_mm_set_ss(f))); return result; }
 
 #else
 #error No HbMath vector intrinsics for the target platform.
 #endif
+
+HbForceInline float HbMath_F32_DivideCoarse(float a, float b) { return a * HbMath_F32_InverseCoarse(b); }
+HbForceInline float HbMath_F32_SqrtCoarse(float f) { return f * HbMath_F32_InverseSqrtCoarse(f); }
 
 // Only safe for values numbers whose absolute value is smaller than 2^31. Rounds the human way (0.5 to 1).
 // Inspired by Stephanie Rancourt's method (under the Boost Software License), but with multiplication by 2 instead of 1.99999988079071044921875.
@@ -294,6 +313,43 @@ HbForceInline void HbMath_F32x4_SinCosX4_Loaded(HbMath_F32x4 x, HbMath_F32x4 * s
 HbForceInline void HbMath_F32x4_SinCosX4(HbMath_F32x4 x, HbMath_F32x4 * sine, HbMath_F32x4 * cosine) {
 	HbMath_F32x4_SinCosX4_Loaded(x, sine, cosine, HbMath_F32x4_LoadAligned(HbMath_F32x4_PiConstants), HbMath_F32x4_LoadAligned(HbMath_F32x4_Sin_Constants1),
 			HbMath_F32x4_LoadAligned(HbMath_F32x4_Cos_Constants1), HbMath_F32x4_LoadAligned(HbMath_F32x4_SinCos_Constants2));
+}
+
+HbForceInline float HbMath_F32_Sin(float x) {
+	// Map in [-pi, pi], x = 2*pi*quotient + remainder.
+	x -= 2.0f * HbMath_F32_Pi * (float) (int32_t) ((0.5f * HbMath_F32_InvPi * x) + (x >= 0.0f ? 0.5f : -0.5f));
+	// Map in [-pi/2,pi/2] with sin(y) = sin(x).
+	if (x > 0.5f * HbMath_F32_Pi) {
+		x = HbMath_F32_Pi - x;
+	} else if (x < -0.5f * HbMath_F32_Pi) {
+		x = -HbMath_F32_Pi - x;
+	}
+	// 11-degree minimax approximation.
+	float x2 = x * x;
+	return (((((HbMath_F32_Sin_C1 * x2 + HbMath_F32_Sin_C2) * x2 + HbMath_F32_Sin_C3) * x2 + HbMath_F32_Sin_C4) * x2 + HbMath_F32_Sin_C5) * x2 + HbMath_F32_Sin_C6) * x;
+}
+HbForceInline float HbMath_F32_Cos(float x) {
+	// Map in [-pi, pi], x = 2*pi*quotient + remainder.
+	x -= 2.0f * HbMath_F32_Pi * (float) (int32_t) ((0.5f * HbMath_F32_InvPi * x) + (x >= 0.0f ? 0.5f : -0.5f));
+	// Map in [-pi/2,pi/2] with cos(y) = sign*cos(x).
+	float sign;
+	if (x > 0.5f * HbMath_F32_Pi) {
+		x = HbMath_F32_Pi - x;
+		sign = -1.0f;
+	} else if (x < -0.5f * HbMath_F32_Pi) {
+		x = -HbMath_F32_Pi - x;
+		sign = -1.0f;
+	} else {
+		sign = 1.0f;
+	}
+	// 11-degree minimax approximation.
+	float x2 = x * x;
+	return (((((HbMath_F32_Cos_C1 * x2 + HbMath_F32_Cos_C2) * x2 + HbMath_F32_Cos_C3) * x2 + HbMath_F32_Cos_C4) * x2 + HbMath_F32_Cos_C5) * x2 + HbMath_F32_Cos_C6) * sign;
+}
+HbForceInline void HbMath_F32_SinCos(float x, float * sine, float * cosine) {
+	HbMath_F32x4 sinCosVec = HbMath_F32x4_SinCosX2(HbMath_F32x4_LoadReplicated(x));
+	HbMath_F32x4_StoreX(sine, sinCosVec);
+	HbMath_F32x4_StoreZ(cosine, sinCosVec);
 }
 
 #endif
