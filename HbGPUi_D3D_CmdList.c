@@ -286,16 +286,22 @@ void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList) {
 		HbGPU_RTReference const * colorRT = &cmdList->d3dCurrentDrawPass.colorRTs[rtIndex];
 		HbGPU_DrawPass_Actions const * colorActions = &cmdList->d3dCurrentDrawPass.colorActions[rtIndex];
 		HbGPU_DrawPass_EndAction colorEndAction = colorActions->endAction;
-		if (colorEndAction == HbGPU_DrawPass_EndAction_ResolveStore || colorEndAction == HbGPU_DrawPass_EndAction_ResolveDiscard) {
+		switch (colorActions->endAction) {
+		case HbGPU_DrawPass_EndAction_Discard:
+			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&colorRT->d3dImageRef.image->info, colorRT->d3dImageRef.slice);
+			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, colorRT->d3dImageRef.image->d3dResource, &discardRegion);
+			break;
+		case HbGPU_DrawPass_EndAction_ResolveStore:
+		case HbGPU_DrawPass_EndAction_ResolveDiscard:
 			ID3D12GraphicsCommandList_ResolveSubresource(d3dCommandList, colorActions->resolveImage->d3dResource,
 					HbGPUi_D3D_Image_Slice_ToSubresource(&colorActions->resolveImage->info, colorActions->resolveSlice),
 					colorRT->d3dImageRef.image->d3dResource,
 					HbGPUi_D3D_Image_Slice_ToSubresource(&colorRT->d3dImageRef.image->info, colorRT->d3dImageRef.slice),
 					HbGPUi_D3D_Image_Format_ToTyped(colorActions->resolveImage->info.format));
-		}
-		if (colorEndAction == HbGPU_DrawPass_EndAction_Discard || colorEndAction == HbGPU_DrawPass_EndAction_ResolveDiscard) {
-			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&colorRT->d3dImageRef.image->info, colorRT->d3dImageRef.slice);
-			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, colorRT->d3dImageRef.image->d3dResource, &discardRegion);
+			// Don't discard here, discarding is only allowed in RENDER_TARGET state, not RESOLVE_SOURCE.
+			break;
+		default:
+			break;
 		}
 	}
 	if (cmdList->d3dCurrentDrawPass.hasDepthStencilRT) {

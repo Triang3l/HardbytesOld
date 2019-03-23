@@ -273,6 +273,9 @@ typedef struct HbGPU_Image_SliceReference {
 } HbGPU_Image_SliceReference;
 
 // Assumes VALID image->info!
+HbBool HbGPU_Image_InitWithValidInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue);
+// Validates info and proxies to HbGPU_Image_InitWithValidInfo.
 HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue);
 void HbGPU_Image_Destroy(HbGPU_Image * image);

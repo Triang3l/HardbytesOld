@@ -438,8 +438,8 @@ void HbGPUi_D3D_Image_Info_ToResourceDesc(D3D12_RESOURCE_DESC * desc, HbGPU_Imag
 		desc->DepthOrArraySize *= 6;
 	}
 	desc->MipLevels = info->mips;
-	if (HbGPU_Image_Format_IsDepth(info->format) &&
-		!(info->usageOptions & HbGPU_Image_UsageOptions_DepthTestOnly)) {
+	HbBool formatIsDepth = HbGPU_Image_Format_IsDepth(info->format);
+	if (formatIsDepth && !(info->usageOptions & HbGPU_Image_UsageOptions_DepthTestOnly)) {
 		desc->Format = HbGPUi_D3D_Image_Format_ToTypeless(info->format);
 	} else {
 		desc->Format = HbGPUi_D3D_Image_Format_ToTyped(info->format);
@@ -447,7 +447,7 @@ void HbGPUi_D3D_Image_Info_ToResourceDesc(D3D12_RESOURCE_DESC * desc, HbGPU_Imag
 	desc->SampleDesc.Count = 1 << info->samplesLog2;
 	desc->SampleDesc.Quality = 0;
 	desc->Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	desc->Flags = D3D12_RESOURCE_FLAG_NONE;
+	desc->Flags = formatIsDepth ? D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL : D3D12_RESOURCE_FLAG_NONE;
 	if (info->usageOptions & HbGPU_Image_UsageOptions_ShaderEditable) {
 		desc->Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	}
@@ -495,7 +495,7 @@ D3D12_RESOURCE_STATES HbGPUi_D3D_Image_Usage_ToStates(HbGPU_Image_Usage usage) {
 	return states;
 }
 
-HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
+HbBool HbGPU_Image_InitWithValidInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
 		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue) {
 	D3D12_HEAP_PROPERTIES heapProperties = { 0 };
 	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;

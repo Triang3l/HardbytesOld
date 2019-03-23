@@ -77,3 +77,11 @@ HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 	}
 	return HbTrue;
 }
+
+HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,
+		HbGPU_Image_Usage initialUsage, HbGPU_Image_ClearValue const * optimalClearValue) {
+	if (!HbGPU_Image_Info_CleanupAndValidate(&image->info)) {
+		return HbFalse;
+	}
+	return HbGPU_Image_InitWithValidInfo(image, name, device, initialUsage, optimalClearValue);
+}
