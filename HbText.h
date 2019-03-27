@@ -28,6 +28,18 @@ typedef uint32_t HbTextU32; // Whole code point.
  * ASCII
  ********/
 
+HbForceInline char HbTextA_CharToLower(char character) {
+	if (character >= 'A' && character <= 'Z') {
+		character += 'a' - 'A';
+	}
+	return character;
+}
+HbForceInline char HbTextA_CharToUpper(char character) {
+	if (character >= 'a' && character <= 'z') {
+		character -= 'a' - 'A';
+	}
+	return character;
+}
 #define HbTextA_Length strlen
 #define HbTextA_Compare strcmp
 #define HbTextA_ComparePart strncmp
