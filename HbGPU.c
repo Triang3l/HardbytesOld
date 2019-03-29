@@ -2,25 +2,6 @@
 #include "HbFeedback.h"
 #include "HbGPU.h"
 
-uint32_t HbGPU_Image_Format_ElementSize(HbGPU_Image_Format format) {
-	if (format >= HbGPU_Image_Format_FormatCount) {
-		return 0;
-	}
-	static uint32_t const sizes[] = {
-		[HbGPU_Image_Format_8_R_UNorm] = 1,
-		[HbGPU_Image_Format_8_8_RG_UNorm] = 2,
-		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = 4,
-		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = 4,
-		[HbGPU_Image_Format_32_UInt] = 4,
-		[HbGPU_Image_Format_32_Float] = 4,
-		[HbGPU_Image_Format_D32] = 4,
-		[HbGPU_Image_Format_D32_S8] = 8,
-	};
-	HbFeedback_StaticAssert(HbArrayLength(sizes) == HbGPU_Image_Format_FormatCount,
-			"All known image formats must have sizes defined in HbGPU_Image_Format_ElementSize.");
-	return sizes[(uint32_t) format];
-}
-
 HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 	info->width = HbMaxU32(info->width, 1);
 	info->height = HbMaxU32(info->height, 1);
@@ -75,7 +56,68 @@ HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 			info->mips > maxMips || info->samplesLog2 > maxSamplesLog2) {
 		return HbFalse;
 	}
+	// Direct3D restriction.
+	if (HbGPU_Image_Format_Is4x4(info->format) && ((info->width & 3) != 0 || (info->height & 3) != 0)) {
+		return HbFalse;
+	}
 	return HbTrue;
+}
+
+uint32_t HbGPU_Image_Copy_ElementSize(HbGPU_Image_Format format, HbBool stencil) {
+	if (format >= HbGPU_Image_Format_FormatCount) {
+		return 0;
+	}
+	if (stencil) {
+		return HbGPU_Image_Format_HasStencil(format) ? 1 : 0;
+	}
+	static uint32_t const sizes[] = {
+		[HbGPU_Image_Format_8_R_UNorm] = 1,
+		[HbGPU_Image_Format_8_8_RG_UNorm] = 2,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_UNorm] = 4,
+		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = 4,
+		[HbGPU_Image_Format_32_UInt] = 4,
+		[HbGPU_Image_Format_32_Float] = 4,
+		[HbGPU_Image_Format_S3TC_A1_UNorm] = 8,
+		[HbGPU_Image_Format_S3TC_A1_sRGB] = 8,
+		[HbGPU_Image_Format_S3TC_A4_UNorm] = 16,
+		[HbGPU_Image_Format_S3TC_A4_sRGB] = 16,
+		[HbGPU_Image_Format_S3TC_A8_UNorm] = 16,
+		[HbGPU_Image_Format_S3TC_A8_sRGB] = 16,
+		[HbGPU_Image_Format_3Dc_R_UNorm] = 8,
+		[HbGPU_Image_Format_3Dc_R_SNorm] = 8,
+		[HbGPU_Image_Format_3Dc_RG_UNorm] = 16,
+		[HbGPU_Image_Format_3Dc_RG_SNorm] = 16,
+		[HbGPU_Image_Format_D32] = 4,
+		[HbGPU_Image_Format_D32_S8] = 4,
+	};
+	HbFeedback_StaticAssert(HbArrayLength(sizes) == HbGPU_Image_Format_FormatCount,
+			"All known image formats must have sizes defined in HbGPU_Image_Format_ElementCopySize.");
+	return sizes[(uint32_t) format];
+}
+
+uint32_t HbGPU_Image_Copy_MipLayout(HbGPU_Image_Info const * info, HbBool stencil, uint32_t mip,
+		uint32_t * outRowPitchBytes, uint32_t * out3DLayerPitchRows, uint32_t * outDepth) {
+	// Can't exchange data between multisampled images and buffers in Direct3D.
+	if (info->samplesLog2 > 0 || mip >= info->mips) {
+		return 0;
+	}
+	uint32_t mipWidth = info->width, mipHeight = info->height, mipDepth = HbGPU_Image_Info_Get3DDepth(info);
+	HbGPU_Image_MipSize(mip, info->dimensions, &mipWidth, &mipHeight, &mipDepth);
+	if (HbGPU_Image_Format_Is4x4(info->format)) {
+		mipWidth = (mipWidth + 3) >> 2;
+		mipHeight = (mipHeight + 3) >> 2;
+	}
+	uint32_t rowPitch = HbAlignU32(mipWidth * HbGPU_Image_Copy_ElementSize(info->format, stencil), HbGPU_Image_Copy_RowAlignment);
+	if (outRowPitchBytes != HbNull) {
+		*outRowPitchBytes = rowPitch;
+	}
+	if (out3DLayerPitchRows != HbNull) {
+		*out3DLayerPitchRows = mipHeight;
+	}
+	if (outDepth != HbNull) {
+		*outDepth = mipDepth;
+	}
+	return HbAlignU32(rowPitch * mipHeight * mipDepth, HbGPU_Image_Copy_SliceAlignment);
 }
 
 HbBool HbGPU_Image_InitWithInfo(HbGPU_Image * image, HbTextU8 const * name, HbGPU_Device * device,

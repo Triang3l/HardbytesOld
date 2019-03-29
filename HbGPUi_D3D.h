@@ -28,6 +28,7 @@ D3D12_RESOURCE_STATES HbGPUi_D3D_Buffer_Usage_ToStates(HbGPU_Buffer_Usage usage)
 
 DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format);
 DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTypeless(HbGPU_Image_Format format);
+DXGI_FORMAT HbGPUi_D3D_Image_Format_ToCopy(HbGPU_Image_Format format, HbBool stencil);
 DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTexture(HbGPU_Image_Format format, HbBool stencil);
 // Assumes valid info.
 void HbGPUi_D3D_Image_Info_ToResourceDesc(D3D12_RESOURCE_DESC * desc, HbGPU_Image_Info const * info);
@@ -36,7 +37,7 @@ inline uint32_t HbGPUi_D3D_Image_Slice_ToSubresource(HbGPU_Image_Info const * in
 	uint32_t cubeSideCount = HbGPU_Image_Dimensions_AreCube(info->dimensions) ? 6 : 1;
 	uint32_t arrayLayerCount = info->depthOrLayers * cubeSideCount;
 	uint32_t arrayLayer = slice.layer * cubeSideCount + slice.cubeSide;
-	return slice.stencil * (arrayLayerCount * info->mips) + arrayLayer * info->mips + slice.mip;
+	return (uint32_t) slice.stencil * (arrayLayerCount * info->mips) + arrayLayer * info->mips + slice.mip;
 }
 // Doesn't increment reference count of the resource. Starts in Present usage.
 void HbGPUi_D3D_Image_WrapSwapChainBuffer(HbGPU_Image * image, HbTextU8 const * name,

@@ -379,6 +379,16 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format) {
 		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
 		[HbGPU_Image_Format_32_UInt] = DXGI_FORMAT_R32_UINT,
 		[HbGPU_Image_Format_32_Float] = DXGI_FORMAT_R32_FLOAT,
+		[HbGPU_Image_Format_S3TC_A1_UNorm] = DXGI_FORMAT_BC1_UNORM,
+		[HbGPU_Image_Format_S3TC_A1_sRGB] = DXGI_FORMAT_BC1_UNORM_SRGB,
+		[HbGPU_Image_Format_S3TC_A4_UNorm] = DXGI_FORMAT_BC2_UNORM,
+		[HbGPU_Image_Format_S3TC_A4_sRGB] = DXGI_FORMAT_BC2_UNORM_SRGB,
+		[HbGPU_Image_Format_S3TC_A8_UNorm] = DXGI_FORMAT_BC3_UNORM,
+		[HbGPU_Image_Format_S3TC_A8_sRGB] = DXGI_FORMAT_BC3_UNORM_SRGB,
+		[HbGPU_Image_Format_3Dc_R_UNorm] = DXGI_FORMAT_BC4_UNORM,
+		[HbGPU_Image_Format_3Dc_R_SNorm] = DXGI_FORMAT_BC4_SNORM,
+		[HbGPU_Image_Format_3Dc_RG_UNorm] = DXGI_FORMAT_BC5_UNORM,
+		[HbGPU_Image_Format_3Dc_RG_SNorm] = DXGI_FORMAT_BC5_SNORM,
 		[HbGPU_Image_Format_D32] = DXGI_FORMAT_D32_FLOAT,
 		[HbGPU_Image_Format_D32_S8] = DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
 	};
@@ -398,12 +408,32 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTypeless(HbGPU_Image_Format format) {
 		[HbGPU_Image_Format_8_8_8_8_RGBA_sRGB] = DXGI_FORMAT_R8G8B8A8_TYPELESS,
 		[HbGPU_Image_Format_32_UInt] = DXGI_FORMAT_R32_TYPELESS,
 		[HbGPU_Image_Format_32_Float] = DXGI_FORMAT_R32_TYPELESS,
+		[HbGPU_Image_Format_S3TC_A1_UNorm] = DXGI_FORMAT_BC1_TYPELESS,
+		[HbGPU_Image_Format_S3TC_A1_sRGB] = DXGI_FORMAT_BC1_TYPELESS,
+		[HbGPU_Image_Format_S3TC_A4_UNorm] = DXGI_FORMAT_BC2_TYPELESS,
+		[HbGPU_Image_Format_S3TC_A4_sRGB] = DXGI_FORMAT_BC2_TYPELESS,
+		[HbGPU_Image_Format_S3TC_A8_UNorm] = DXGI_FORMAT_BC3_TYPELESS,
+		[HbGPU_Image_Format_S3TC_A8_sRGB] = DXGI_FORMAT_BC3_TYPELESS,
+		[HbGPU_Image_Format_3Dc_R_UNorm] = DXGI_FORMAT_BC4_TYPELESS,
+		[HbGPU_Image_Format_3Dc_R_SNorm] = DXGI_FORMAT_BC4_TYPELESS,
+		[HbGPU_Image_Format_3Dc_RG_UNorm] = DXGI_FORMAT_BC5_TYPELESS,
+		[HbGPU_Image_Format_3Dc_RG_SNorm] = DXGI_FORMAT_BC5_TYPELESS,
 		[HbGPU_Image_Format_D32] = DXGI_FORMAT_R32_TYPELESS,
 		[HbGPU_Image_Format_D32_S8] = DXGI_FORMAT_R32G8X24_TYPELESS,
 	};
 	HbFeedback_StaticAssert(HbArrayLength(dxgiFormats) == HbGPU_Image_Format_FormatCount,
 			"All known image formats must be mapped in HbGPUi_D3D_Image_Format_ToTypeless.");
 	return dxgiFormats[(uint32_t) format];
+}
+
+DXGI_FORMAT HbGPUi_D3D_Image_Format_ToCopy(HbGPU_Image_Format format, HbBool stencil) {
+	if (stencil) {
+		return HbGPU_Image_Format_HasStencil(format) ? DXGI_FORMAT_R8_TYPELESS : DXGI_FORMAT_UNKNOWN;
+	}
+	if (format == HbGPU_Image_Format_D32_S8) {
+		return DXGI_FORMAT_R32_TYPELESS;
+	}
+	return HbGPUi_D3D_Image_Format_ToTypeless(format);
 }
 
 DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTexture(HbGPU_Image_Format format, HbBool stencil) {
@@ -576,7 +606,7 @@ void HbGPU_HandleStore_SetConstantBuffer(HbGPU_HandleStore * store, uint32_t ind
 		HbGPU_Buffer * buffer, uint32_t offset, uint32_t size) {
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {
 		.BufferLocation = buffer->d3dGPUAddress + offset,
-		.SizeInBytes = HbAlign(size, (uint32_t) HbGPU_Buffer_ConstantsAlignment),
+		.SizeInBytes = HbAlignU32(size, HbGPU_Buffer_ConstantsAlignment),
 	};
 	ID3D12Device_CreateConstantBufferView(store->device->d3dDevice, &cbvDesc,
 			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
@@ -590,7 +620,7 @@ void HbGPU_HandleStore_SetTexelResourceBuffer(HbGPU_HandleStore * store, uint32_
 		.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
 		.Buffer.FirstElement = offsetInTexels,
 		.Buffer.NumElements = texelCount,
-		.Buffer.StructureByteStride = HbGPU_Image_Format_ElementSize(format),
+		.Buffer.StructureByteStride = HbGPU_Image_Copy_ElementSize(format, HbFalse),
 		.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE,
 	};
 	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, buffer->d3dResource, &srvDesc,
@@ -619,7 +649,7 @@ void HbGPU_HandleStore_SetEditBuffer(HbGPU_HandleStore * store, uint32_t index,
 		.ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
 		.Buffer.FirstElement = offsetInTexels,
 		.Buffer.NumElements = texelCount,
-		.Buffer.StructureByteStride = HbGPU_Image_Format_ElementSize(format),
+		.Buffer.StructureByteStride = HbGPU_Image_Copy_ElementSize(format, HbFalse),
 		.Buffer.CounterOffsetInBytes = 0,
 		.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE,
 	};

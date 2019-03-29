@@ -144,6 +144,18 @@ typedef enum HbGPU_Image_Format {
 		HbGPU_Image_Format_32_UInt,
 		HbGPU_Image_Format_32_Float,
 	HbGPU_Image_Format_RawEnd = HbGPU_Image_Format_32_Float,
+	HbGPU_Image_Format_4x4Start,
+		HbGPU_Image_Format_S3TC_A1_UNorm = HbGPU_Image_Format_4x4Start,
+		HbGPU_Image_Format_S3TC_A1_sRGB,
+		HbGPU_Image_Format_S3TC_A4_UNorm,
+		HbGPU_Image_Format_S3TC_A4_sRGB,
+		HbGPU_Image_Format_S3TC_A8_UNorm,
+		HbGPU_Image_Format_S3TC_A8_sRGB,
+		HbGPU_Image_Format_3Dc_R_UNorm,
+		HbGPU_Image_Format_3Dc_R_SNorm,
+		HbGPU_Image_Format_3Dc_RG_UNorm,
+		HbGPU_Image_Format_3Dc_RG_SNorm,
+	HbGPU_Image_Format_4x4End = HbGPU_Image_Format_3Dc_RG_SNorm,
 	HbGPU_Image_Format_DepthStart,
 		HbGPU_Image_Format_D32 = HbGPU_Image_Format_DepthStart,
 		HbGPU_Image_Format_DepthAndStencilStart,
@@ -152,6 +164,9 @@ typedef enum HbGPU_Image_Format {
 	HbGPU_Image_Format_DepthEnd = HbGPU_Image_Format_DepthAndStencilEnd,
 	HbGPU_Image_Format_FormatCount,
 } HbGPU_Image_Format;
+HbForceInline HbBool HbGPU_Image_Format_Is4x4(HbGPU_Image_Format format) {
+	return format >= HbGPU_Image_Format_4x4Start && format <= HbGPU_Image_Format_4x4End;
+}
 HbForceInline HbBool HbGPU_Image_Format_IsDepth(HbGPU_Image_Format format) {
 	return format >= HbGPU_Image_Format_DepthStart && format <= HbGPU_Image_Format_DepthEnd;
 }
@@ -161,8 +176,6 @@ HbForceInline HbBool HbGPU_Image_Format_HasStencil(HbGPU_Image_Format format) {
 HbForceInline HbGPU_Image_Format HbGPU_Image_Format_ToLinear(HbGPU_Image_Format format) {
 	return format == HbGPU_Image_Format_8_8_8_8_RGBA_sRGB ? HbGPU_Image_Format_8_8_8_8_RGBA_UNorm : format;
 }
-// Element is either a texel (for uncompressed formats) or a block (for compressed formats).
-uint32_t HbGPU_Image_Format_ElementSize(HbGPU_Image_Format format);
 
 typedef enum HbGPU_Image_Dimensions {
 	HbGPU_Image_Dimensions_1D,
@@ -201,6 +214,19 @@ enum {
 	HbGPU_Image_MaxSamplesLog2 = 4,
 };
 
+// Force inline so null checks and pointer passing may be removed.
+HbForceInline void HbGPU_Image_MipSize(uint32_t mip, HbGPU_Image_Dimensions dimensions, uint32_t * width, uint32_t * height, uint32_t * depth) {
+	if (width != HbNull) {
+		*width = HbMaxU32(*width >> mip, 1);
+	}
+	if (height != HbNull) {
+		*height = HbGPU_Image_Dimensions_Are1D(dimensions) ? 1 : HbMaxU32(*height >> mip, 1);
+	}
+	if (depth != HbNull) {
+		*depth = (dimensions == HbGPU_Image_Dimensions_3D) ? HbMaxU32(*depth >> mip, 1) : 1;
+	}
+}
+
 typedef uint32_t HbGPU_Image_UsageOptions;
 enum {
 	// Certain color formats only - can be written to in shaders.
@@ -221,8 +247,24 @@ typedef struct HbGPU_Image_Info {
 	uint32_t samplesLog2; // For 2D non-arrays only - in other cases, only 0 is allowed.
 	HbGPU_Image_UsageOptions usageOptions;
 } HbGPU_Image_Info;
-
 HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info);
+HbForceInline uint32_t HbGPU_Image_Info_Get3DDepth(HbGPU_Image_Info const * info) {
+	return (info->dimensions == HbGPU_Image_Dimensions_3D) ? info->depthOrLayers : 1;
+}
+HbForceInline uint32_t HbGPU_Image_Info_GetArrayLayers(HbGPU_Image_Info const * info) {
+	return (info->dimensions != HbGPU_Image_Dimensions_3D) ? info->depthOrLayers : 1;
+}
+
+// Element is either a texel (for uncompressed formats) or a block (for compressed formats).
+uint32_t HbGPU_Image_Copy_ElementSize(HbGPU_Image_Format format, HbBool stencil);
+// D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - alignment of each slice (from mip level and above) in copy buffers.
+#define HbGPU_Image_Copy_SliceAlignment 512
+// D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - alignment of each row of elements in copy buffers.
+#define HbGPU_Image_Copy_RowAlignment 256
+// Returns the total slice-aligned size of the mip level, or 0 if not possible to obtain the layout.
+// Assumes valid info (of an existing image, for instance).
+uint32_t HbGPU_Image_Copy_MipLayout(HbGPU_Image_Info const * info, HbBool stencil, uint32_t mip,
+		uint32_t * outRowPitchBytes, uint32_t * out3DLayerPitchRows, uint32_t * outDepth);
 
 typedef struct HbGPU_Image {
 	HbGPU_Image_Info info;
@@ -263,7 +305,7 @@ typedef struct HbGPU_Image_Slice {
 	uint32_t mip : HbGPU_Image_MipCountBits;
 	uint32_t cubeSide : 3;
 	uint32_t layer : HbGPU_Image_MaxLayersLog2;
-	uint32_t stencil : 1;
+	HbBool stencil : 1;
 } HbGPU_Image_Slice;
 
 // Helper structure to be put in other structures if needed (like render target storages).
@@ -881,5 +923,19 @@ void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config);
 void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ);
+
+void HbGPU_CmdList_CopyBegin(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_CopyEnd(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_CopyBufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,
+		HbGPU_Buffer * source, uint32_t sourceOffset, uint32_t size);
+// Buffer offset must be aligned to HbGPU_Image_Copy_SliceAlignment, row pitch must be aligned to HbGPU_Image_Copy_RowAlignment.
+void HbGPU_CmdList_CopyImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
+		HbGPU_Image * image, HbGPU_Image_Slice imageSlice, uint32_t imageX, uint32_t imageY, uint32_t imageZ,
+		HbGPU_Buffer * buffer, uint32_t bufferOffset, uint32_t bufferRowPitchBytes, uint32_t buffer3DLayerPitchRows,
+		uint32_t width, uint32_t height, uint32_t depth);
+void HbGPU_CmdList_CopyImageXImage(HbGPU_CmdList * cmdList,
+		HbGPU_Image * target, HbGPU_Image_Slice targetSlice, uint32_t targetX, uint32_t targetY, uint32_t targetZ,
+		HbGPU_Image * source, HbGPU_Image_Slice sourceSlice, uint32_t sourceX, uint32_t sourceY, uint32_t sourceZ,
+		uint32_t width, uint32_t height, uint32_t depth);
 
 #endif

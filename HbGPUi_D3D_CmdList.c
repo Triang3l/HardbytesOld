@@ -409,4 +409,83 @@ void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, ui
 	ID3D12GraphicsCommandList_Dispatch(cmdList->d3dGraphicsCommandList, groupsX, groupsY, groupsZ);
 }
 
+void HbGPU_CmdList_CopyBegin(HbGPU_CmdList * cmdList) {}
+
+void HbGPU_CmdList_CopyEnd(HbGPU_CmdList * cmdList) {}
+
+void HbGPU_CmdList_CopyBufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,
+		HbGPU_Buffer * source, uint32_t sourceOffset, uint32_t size) {
+	ID3D12GraphicsCommandList_CopyBufferRegion(cmdList->d3dGraphicsCommandList, target->d3dResource, targetOffset, source->d3dResource, sourceOffset, size);
+}
+
+void HbGPU_CmdList_CopyImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
+		HbGPU_Image * image, HbGPU_Image_Slice imageSlice, uint32_t imageX, uint32_t imageY, uint32_t imageZ,
+		HbGPU_Buffer * buffer, uint32_t bufferOffset, uint32_t bufferRowPitchBytes, uint32_t buffer3DLayerPitchRows,
+		uint32_t width, uint32_t height, uint32_t depth) {
+	D3D12_TEXTURE_COPY_LOCATION imageLocation = {
+		.pResource = image->d3dResource,
+		.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+		.SubresourceIndex = HbGPUi_D3D_Image_Slice_ToSubresource(&image->info, imageSlice),
+	};
+	D3D12_TEXTURE_COPY_LOCATION bufferLocation = {
+		.pResource = buffer->d3dResource,
+		.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+		.PlacedFootprint.Offset = bufferOffset,
+		.PlacedFootprint.Footprint.Format = HbGPUi_D3D_Image_Format_ToCopy(image->info.format, imageSlice.stencil),
+		.PlacedFootprint.Footprint.Width = width,
+		.PlacedFootprint.Footprint.Height = buffer3DLayerPitchRows,
+		.PlacedFootprint.Footprint.Depth = depth,
+		.PlacedFootprint.Footprint.RowPitch = bufferRowPitchBytes,
+	};
+	if (HbGPU_Image_Format_Is4x4(image->info.format)) {
+		bufferLocation.PlacedFootprint.Footprint.Width = HbAlignU32(bufferLocation.PlacedFootprint.Footprint.Width, 4);
+		bufferLocation.PlacedFootprint.Footprint.Height <<= 2;
+	}
+	D3D12_BOX sourceBox;
+	if (toBuffer) {
+		sourceBox.left = imageX;
+		sourceBox.top = imageY;
+		sourceBox.front = imageZ;
+	} else {
+		sourceBox.left = sourceBox.top = sourceBox.front = 0;
+	}
+	sourceBox.right = sourceBox.left + width;
+	sourceBox.bottom = sourceBox.top + height;
+	sourceBox.back = sourceBox.front + depth;
+	if (toBuffer) {
+		ID3D12GraphicsCommandList_CopyTextureRegion(cmdList->d3dGraphicsCommandList, &bufferLocation, 0, 0, 0, &imageLocation, &sourceBox);
+	} else {
+		ID3D12GraphicsCommandList_CopyTextureRegion(cmdList->d3dGraphicsCommandList, &imageLocation, imageX, imageY, imageZ, &bufferLocation, &sourceBox);
+	}
+}
+
+void HbGPU_CmdList_CopyImageXImage(HbGPU_CmdList * cmdList,
+		HbGPU_Image * target, HbGPU_Image_Slice targetSlice, uint32_t targetX, uint32_t targetY, uint32_t targetZ,
+		HbGPU_Image * source, HbGPU_Image_Slice sourceSlice, uint32_t sourceX, uint32_t sourceY, uint32_t sourceZ,
+		uint32_t width, uint32_t height, uint32_t depth) {
+	D3D12_TEXTURE_COPY_LOCATION targetLocation = {
+		.pResource = target->d3dResource,
+		.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+		.SubresourceIndex = HbGPUi_D3D_Image_Slice_ToSubresource(&target->info, targetSlice),
+	};
+	D3D12_TEXTURE_COPY_LOCATION sourceLocation = {
+		.pResource = source->d3dResource,
+		.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+		.SubresourceIndex = HbGPUi_D3D_Image_Slice_ToSubresource(&source->info, sourceSlice),
+	};
+	if (target->info.samplesLog2 > 0) {
+		// Only full-image copies with MSAA.
+		ID3D12GraphicsCommandList_CopyTextureRegion(cmdList->d3dGraphicsCommandList, &targetLocation, 0, 0, 0, &sourceLocation, HbNull);
+	} else {
+		D3D12_BOX sourceBox;
+		sourceBox.left = sourceX;
+		sourceBox.top = sourceY;
+		sourceBox.front = sourceZ;
+		sourceBox.right = sourceBox.left + width;
+		sourceBox.bottom = sourceBox.top + height;
+		sourceBox.back = sourceBox.front + depth;
+		ID3D12GraphicsCommandList_CopyTextureRegion(cmdList->d3dGraphicsCommandList, &targetLocation, targetX, targetY, targetZ, &sourceLocation, &sourceBox);
+	}
+}
+
 #endif
