@@ -24,6 +24,17 @@ typedef uint32_t HbTextU32; // Whole code point.
 // Replacement character for anything invalid - must be a 7-bit ASCII character.
 #define HbText_InvalidSubstitute '?'
 
+// Maximum lengths of integers converted to strings.
+#define HbText_Decimal_MaxLengthU8  3  // strlen("255")
+#define HbText_Decimal_MaxLengthS8  4  // strlen("-128")
+#define HbText_Decimal_MaxLengthU16 5  // strlen("65535")
+#define HbText_Decimal_MaxLengthS16 6  // strlen("-32768")
+#define HbText_Decimal_MaxLengthU32 10 // strlen("4294967295")
+#define HbText_Decimal_MaxLengthS32 11 // strlen("-2147483648")
+#define HbText_Decimal_MaxLengthU64 20 // strlen("18446744073709551615")
+#define HbText_Decimal_MaxLengthS64 20 // strlen("-9223372036854775808")
+#define HbText_Decimal_MaxLengthSize (sizeof(size_t) > 4 ? HbText_Decimal_MaxLengthU64 : HbText_Decimal_MaxLengthU32)
+
 /********
  * ASCII
  ********/

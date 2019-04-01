@@ -2,6 +2,10 @@
 #include "HbFeedback.h"
 #include "HbGPU.h"
 
+/********
+ * Image
+ ********/
+
 HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
 	info->width = HbMaxU32(info->width, 1);
 	info->height = HbMaxU32(info->height, 1);

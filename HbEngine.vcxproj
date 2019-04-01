@@ -161,25 +161,50 @@
     <ClInclude Include="HbCommon.h" />
     <ClInclude Include="HbCore.h" />
     <ClInclude Include="HbFeedback.h" />
+    <ClInclude Include="HbFile.h" />
+    <ClInclude Include="HbFile_IQM.h" />
     <ClInclude Include="HbGPU.h" />
     <ClInclude Include="HbGPUi_D3D.h" />
+    <ClInclude Include="HbHash.h" />
     <ClInclude Include="HbMemory.h" />
+    <ClInclude Include="HbPack.h" />
     <ClInclude Include="HbParallel.h" />
     <ClInclude Include="HbPlatform.h" />
+    <ClInclude Include="HbShader.h" />
+    <ClInclude Include="HbLoad.h" />
     <ClInclude Include="HbText.h" />
     <ClInclude Include="HbMath.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="HbFeedback.c" />
     <ClCompile Include="HbCore.c" />
+    <ClCompile Include="HbFile.c" />
     <ClCompile Include="HbGPU.c" />
     <ClCompile Include="HbGPUi_D3D.c" />
     <ClCompile Include="HbGPUi_D3D_CmdList.c" />
+    <ClCompile Include="HbHash.c" />
+    <ClCompile Include="HbLoad_GPUCopier.c" />
     <ClCompile Include="HbMath.c" />
     <ClCompile Include="HbMemory.c" />
+    <ClCompile Include="HbPack.c" />
     <ClCompile Include="HbParallel.c" />
     <ClCompile Include="HbPlatform_Windows.c" />
+    <ClCompile Include="HbShader.c" />
     <ClCompile Include="HbText.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="HbShader\HbShader_FullScreenTexCoordVS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
+    </FxCompile>
+    <FxCompile Include="HbShader\HbShader_FullScreenVS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

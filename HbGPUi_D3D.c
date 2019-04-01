@@ -21,10 +21,10 @@ void HbGPUi_D3D_SetObjectName(void * object, HbGPUi_D3D_ObjectNameSetter setter,
 void HbGPUi_D3D_SetSubObjectName(void * object, HbGPUi_D3D_ObjectNameSetter setter,
 		HbTextU8 const * parentName, HbTextU8 const * name) {
 	if (parentName == HbNull || parentName[0] == '\0') {
-		HbGPUi_D3D_SetObjectName(object, setter, name);
 		return;
 	}
 	if (name == HbNull || name[0] == '\0') {
+		HbGPUi_D3D_SetObjectName(object, setter, parentName);
 		return;
 	}
 	size_t parentNameU16LengthElems = HbTextU8_LengthU16Elems(parentName);
@@ -50,10 +50,10 @@ void HbGPUi_D3D_SetDXGIObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSette
 void HbGPUi_D3D_SetDXGISubObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSetter setter,
 		HbTextU8 const * parentName, HbTextU8 const * name) {
 	if (parentName == HbNull || parentName[0] == '\0') {
-		HbGPUi_D3D_SetDXGIObjectName(object, setter, name);
 		return;
 	}
 	if (name == HbNull || name[0] == '\0') {
+		HbGPUi_D3D_SetDXGIObjectName(object, setter, parentName);
 		return;
 	}
 	size_t parentNameU16LengthElems = HbTextU8_LengthU16Elems(parentName);
@@ -1572,6 +1572,8 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 		case HbGPU_Vertex_Semantic_Color: inputElementDesc->SemanticName = "COLOR"; break;
 		case HbGPU_Vertex_Semantic_BlendIndices: inputElementDesc->SemanticName = "BLENDINDICES"; break;
 		case HbGPU_Vertex_Semantic_BlendWeights: inputElementDesc->SemanticName = "BLENDWEIGHTS"; break;
+		case HbGPU_Vertex_Semantic_InstancePosition: inputElementDesc->SemanticName = "INSTANCEPOSITION"; break;
+		case HbGPU_Vertex_Semantic_InstanceRotation: inputElementDesc->SemanticName = "INSTANCEROTATION"; break;
 		default: return HbFalse;
 		}
 		inputElementDesc->SemanticIndex = attribute->semanticIndex;

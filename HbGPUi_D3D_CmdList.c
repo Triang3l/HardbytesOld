@@ -3,6 +3,7 @@
 #include "HbFeedback.h"
 
 HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_Device * device, HbGPU_CmdQueue queue) {
+	cmdList->device = device;
 	cmdList->queue = queue;
 	D3D12_COMMAND_LIST_TYPE type;
 	switch (queue) {
@@ -67,10 +68,11 @@ void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList) {
 	ID3D12GraphicsCommandList_Close(cmdList->d3dGraphicsCommandList);
 }
 
-void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount) {
+void HbGPU_CmdList_Submit(uint32_t cmdListCount, HbGPU_CmdList * const * cmdLists) {
 	if (cmdListCount == 0) {
 		return;
 	}
+	HbGPU_Device * device = cmdLists[0]->device;
 	if (cmdListCount == 1) {
 		ID3D12GraphicsCommandList_Close(cmdLists[0]->d3dGraphicsCommandList);
 		ID3D12CommandQueue * d3dQueue = device->d3dCommandQueues[cmdLists[0]->queue];

@@ -95,7 +95,7 @@ void HbMemory_Tag_Destroy(HbMemory_Tag * tag, HbBool leaksAreErrors) {
 
 void * HbMemory_DoAlloc(HbMemory_Tag * tag, size_t size, HbBool align16,
 		char const * fileName, uint32_t fileLine, HbBool crashOnFailure) {
-	size_t mallocSize = sizeof(HbMemoryi_Allocation) + HbAlign(size, (size_t) 16); // Same as in DoRealloc.
+	size_t mallocSize = sizeof(HbMemoryi_Allocation) + HbAlignSize(size, 16); // Same as in DoRealloc.
 	#if HbPlatform_CPU_32Bit
 	if (align16) {
 		// Alignment padding.
@@ -168,9 +168,9 @@ HbBool HbMemory_DoRealloc(void * * memory, size_t size, char const * fileName, u
 
 	// No need to lock here since only realloc can modify the size,
 	// but reallocating the same memory on two threads at once is totally incorrect.
-	size_t alignedSize = HbAlign(size, (size_t) 16); // Same as in DoAlloc.
+	size_t alignedSize = HbAlignSize(size, 16); // Same as in DoAlloc.
 	size_t oldSize = allocation->size;
-	if (alignedSize == HbAlign(oldSize, (size_t) 16)) {
+	if (alignedSize == HbAlignSize(oldSize, 16)) {
 		// Same size - not reallocating.
 		return HbTrue;
 	}

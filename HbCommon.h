@@ -104,6 +104,15 @@ HbForceInline uint32_t HbMaxU32(uint32_t a, uint32_t b) { return HbMaxI(a, b); }
 HbForceInline int32_t HbClampI32(int32_t value, int32_t low, int32_t high) { return HbClampI(value, low, high); }
 HbForceInline uint32_t HbClampU32(uint32_t value, uint32_t low, uint32_t high) { return HbClampI(value, low, high); }
 #define HbClampF(value, low, high) fminf(high, fmaxf(low, value))
+
 #define HbAlign(value, alignment) (((value) + ((alignment) - 1u)) & ~((alignment) - 1u))
+HbForceInline uint32_t HbAlignU32(uint32_t value, uint32_t alignment) {
+	--alignment;
+	return (value + alignment) & ~alignment;
+}
+HbForceInline size_t HbAlignSize(size_t value, size_t alignment) {
+	--alignment;
+	return (value + alignment) & ~alignment;
+}
 
 #endif

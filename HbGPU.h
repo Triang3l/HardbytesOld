@@ -590,14 +590,29 @@ typedef struct HbGPU_Vertex_Stream {
 } HbGPU_Vertex_Stream;
 
 typedef enum HbGPU_Vertex_Semantic {
-	HbGPU_Vertex_Semantic_Position,
-	HbGPU_Vertex_Semantic_Normal,
-	HbGPU_Vertex_Semantic_Tangent,
-	HbGPU_Vertex_Semantic_TexCoord,
-	HbGPU_Vertex_Semantic_Color,
-	HbGPU_Vertex_Semantic_BlendIndices,
-	HbGPU_Vertex_Semantic_BlendWeights,
+	HbGPU_Vertex_Semantic_Position, // Float32x3 preferred.
+	HbGPU_Vertex_Semantic_Normal, // UNorm10.10.10.2 (biased) preferred.
+	HbGPU_Vertex_Semantic_Tangent, // UNorm10.10.10.2 (biased) preferred, bitangent sign in W.
+	HbGPU_Vertex_Semantic_TexCoord, // Float32x2 preferred.
+	HbGPU_Vertex_Semantic_Color, // UNorm8x4 preferred.
+	HbGPU_Vertex_Semantic_BlendIndices, // UInt8x4 preferred.
+	HbGPU_Vertex_Semantic_BlendWeights, // UNorm8x4 preferred.
+	HbGPU_Vertex_Semantic_InstancePosition, // Float32x3 preferred.
+	HbGPU_Vertex_Semantic_InstanceRotation, // SNorm16x4 preferred, quaternion.
 } HbGPU_Vertex_Semantic;
+// For quick checking of what of the required semantics (with semantic index 0, for instance) are present in a mesh.
+typedef uint32_t HbGPU_Vertex_SemanticBits;
+enum {
+	HbGPU_Vertex_SemanticBits_Position = 1 << HbGPU_Vertex_Semantic_Position,
+	HbGPU_Vertex_SemanticBits_Normal = 1 << HbGPU_Vertex_Semantic_Normal,
+	HbGPU_Vertex_SemanticBits_Tangent = 1 << HbGPU_Vertex_Semantic_Tangent,
+	HbGPU_Vertex_SemanticBits_TexCoord = 1 << HbGPU_Vertex_Semantic_TexCoord,
+	HbGPU_Vertex_SemanticBits_Color = 1 << HbGPU_Vertex_Semantic_Color,
+	HbGPU_Vertex_SemanticBits_BlendIndices = 1 << HbGPU_Vertex_Semantic_BlendIndices,
+	HbGPU_Vertex_SemanticBits_BlendWeights = 1 << HbGPU_Vertex_Semantic_BlendWeights,
+	HbGPU_Vertex_SemanticBits_InstancePosition = 1 << HbGPU_Vertex_Semantic_InstancePosition,
+	HbGPU_Vertex_SemanticBits_InstanceRotation = 1 << HbGPU_Vertex_Semantic_InstanceRotation,
+};
 
 typedef enum HbGPU_Vertex_Format {
 	HbGPU_Vertex_Format_Float_32x1,
@@ -820,6 +835,7 @@ typedef struct HbGPU_DrawPass_Info {
  ***************/
 
 typedef struct HbGPU_CmdList {
+	HbGPU_Device * device;
 	HbGPU_CmdQueue queue;
 	#if HbGPU_Implementation_D3D
 	ID3D12CommandAllocator * d3dCommandAllocator;
@@ -839,7 +855,7 @@ void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
 // Since handle/sampler stores must be set in every command list binding anything, they can be specified here as a shortcut.
 void HbGPU_CmdList_Begin(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore);
 void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_Submit(HbGPU_Device * device, HbGPU_CmdList * const * cmdLists, uint32_t cmdListCount);
+void HbGPU_CmdList_Submit(uint32_t cmdListCount, HbGPU_CmdList * const * cmdLists);
 
 // Pass-independent setup.
 void HbGPU_CmdList_SetBindingStores(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore);
@@ -924,6 +940,7 @@ void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config);
 void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ);
 
+// CopyBegin/CopyEnd are no-op on copy queue command lists (implementations must implicitly do this on them).
 void HbGPU_CmdList_CopyBegin(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_CopyEnd(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_CopyBufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,

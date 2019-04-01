@@ -13,8 +13,11 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Header Files\HbShaders">
+    <Filter Include="Header Files\HbShader">
       <UniqueIdentifier>{9d6cdc78-f5c1-40dd-bc5e-428c83bc9982}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\HbShader">
+      <UniqueIdentifier>{136e19d9-6b79-4b67-866e-2b319a1f2508}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -51,6 +54,24 @@
     <ClInclude Include="HbMath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="HbShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HbHash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HbPack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HbFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HbFile_IQM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HbLoad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="HbPlatform_Windows.c">
@@ -83,5 +104,28 @@
     <ClCompile Include="HbMath.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HbShader.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HbPack.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HbHash.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HbFile.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HbLoad_GPUCopier.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="HbShader\HbShader_FullScreenVS.hlsl">
+      <Filter>Source Files\HbShader</Filter>
+    </FxCompile>
+    <FxCompile Include="HbShader\HbShader_FullScreenTexCoordVS.hlsl">
+      <Filter>Source Files\HbShader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
