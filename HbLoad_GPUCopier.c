@@ -177,10 +177,11 @@ HbLoad_GPUCopier_Submission * HbLoad_GPUCopier_Request(HbLoad_GPUCopier * copier
 	return submission;
 }
 
-void * HbLoad_GPUCopier_GetBuffer(HbLoad_GPUCopier_Submission * submission, uint32_t size, HbGPU_CmdList * * cmdListOut) {
+void * HbLoad_GPUCopier_GetBuffer(HbLoad_GPUCopier_Submission * submission, uint32_t size, HbGPU_Buffer * * bufferOut, HbGPU_CmdList * * cmdListOut) {
 	*cmdListOut = &submission->cmdList;
 	HbLoad_GPUCopier_DestroyLargeBuffer(submission); // In case this is called twice for some reason.
 	if (size < submission->buffer.size) {
+		*bufferOut = &submission->buffer;
 		return submission->bufferMapping;
 	}
 	HbTextU8 * largeBufferName = HbNull;
@@ -197,6 +198,7 @@ void * HbLoad_GPUCopier_GetBuffer(HbLoad_GPUCopier_Submission * submission, uint
 	void * mapping = HbGPU_Buffer_Map(&submission->largeBuffer, 0, 0);
 	if (mapping != HbNull) {
 		submission->largeBufferUsed = HbTrue;
+		*bufferOut = &submission->largeBuffer;
 	} else {
 		HbGPU_Buffer_Destroy(&submission->largeBuffer);
 	}

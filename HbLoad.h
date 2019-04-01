@@ -51,7 +51,7 @@ HbBool HbLoad_GPUCopier_HandleCompletion(HbLoad_GPUCopier * copier, void * * req
 // requestData is a user data pointer that will be returned after the completion, to connect the submission with the actual asset.
 HbLoad_GPUCopier_Submission * HbLoad_GPUCopier_Request(HbLoad_GPUCopier * copier, void * requestData);
 // Returns the mapping if successful.
-void * HbLoad_GPUCopier_GetBuffer(HbLoad_GPUCopier_Submission * submission, uint32_t size, HbGPU_CmdList * * cmdListOut);
+void * HbLoad_GPUCopier_GetBuffer(HbLoad_GPUCopier_Submission * submission, uint32_t size, HbGPU_Buffer * * bufferOut, HbGPU_CmdList * * cmdListOut);
 void HbLoad_GPUCopier_Submit(HbLoad_GPUCopier_Submission * submission);
 void HbLoad_GPUCopier_Abort(HbLoad_GPUCopier_Submission * submission); // Don't do this after submission - only to cancel an failed request.
 
