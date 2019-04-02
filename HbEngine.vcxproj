@@ -193,6 +193,9 @@
     <ClCompile Include="HbText.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="HbShader\HbShader_Math.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
     <FxCompile Include="HbShader\HbShader_FullScreenTexCoordVS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>

@@ -600,7 +600,7 @@ typedef enum HbGPU_Vertex_Semantic {
 	HbGPU_Vertex_Semantic_InstancePosition, // Float32x3 preferred.
 	HbGPU_Vertex_Semantic_InstanceRotation, // SNorm16x4 preferred, quaternion.
 } HbGPU_Vertex_Semantic;
-// For quick checking of what of the required semantics (with semantic index 0, for instance) are present in a mesh.
+// For quick checking of which of the required semantics (with semantic index 0, for instance) are present in a mesh.
 typedef uint32_t HbGPU_Vertex_SemanticBits;
 enum {
 	HbGPU_Vertex_SemanticBits_Position = 1 << HbGPU_Vertex_Semantic_Position,

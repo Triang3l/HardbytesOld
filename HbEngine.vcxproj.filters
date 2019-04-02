@@ -121,6 +121,11 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="HbShader\HbShader_Math.hlsli">
+      <Filter>Header Files\HbShader</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <FxCompile Include="HbShader\HbShader_FullScreenVS.hlsl">
       <Filter>Source Files\HbShader</Filter>
     </FxCompile>
