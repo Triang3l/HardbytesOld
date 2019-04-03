@@ -73,43 +73,59 @@ typedef __m128i HbMath_U32x4;
 
 #define HbMath_F32x4_LoadAligned _mm_load_ps
 #define HbMath_S32x4_LoadAligned _mm_load_si128
-#define HbMath_U32x4_LoadAligned _mm_load_si128
+#define HbMath_U32x4_LoadAligned HbMath_S32x4_LoadAligned
 #define HbMath_F32x4_LoadUnaligned _mm_loadu_ps
 #define HbMath_S32x4_LoadUnaligned _mm_loadu_si128
-#define HbMath_U32x4_LoadUnaligned _mm_loadu_si128
+#define HbMath_U32x4_LoadUnaligned HbMath_S32x4_LoadUnaligned
 #define HbMath_F32x4_LoadReplicated _mm_set_ps1
 #define HbMath_S32x4_LoadReplicated _mm_set1_epi32
 #define HbMath_U32x4_LoadReplicated(value) _mm_set1_epi32((int32_t) (value))
+#define HbMath_F32x4_LoadX000 _mm_set_ss
 #define HbMath_F32x4_StoreAligned _mm_store_ps
 #define HbMath_S32x4_StoreAligned _mm_store_si128
-#define HbMath_U32x4_StoreAligned _mm_store_si128
+#define HbMath_U32x4_StoreAligned HbMath_S32x4_StoreAligned
 #define HbMath_F32x4_StoreUnaligned _mm_storeu_ps
 #define HbMath_S32x4_StoreUnaligned _mm_storeu_si128
-#define HbMath_U32x4_StoreUnaligned _mm_storeu_si128
+#define HbMath_U32x4_StoreUnaligned HbMath_S32x4_StoreUnaligned
 
 HbForceInline HbMath_F32x4 HbMath_F32x4_ReplicateX(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 0, 0, 0)); }
 HbForceInline HbMath_F32x4 HbMath_F32x4_ReplicateY(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1)); }
 HbForceInline HbMath_F32x4 HbMath_F32x4_ReplicateZ(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2)); }
 HbForceInline HbMath_F32x4 HbMath_F32x4_ReplicateW(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 3, 3)); }
 #define HbMath_S32x4_ReplicateX(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(0, 0, 0, 0))
-#define HbMath_U32x4_ReplicateX(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(0, 0, 0, 0))
+#define HbMath_U32x4_ReplicateX HbMath_S32x4_ReplicateX
 #define HbMath_S32x4_ReplicateY(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(1, 1, 1, 1))
-#define HbMath_U32x4_ReplicateY(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(1, 1, 1, 1))
+#define HbMath_U32x4_ReplicateY HbMath_S32x4_ReplicateY
 #define HbMath_S32x4_ReplicateZ(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(2, 2, 2, 2))
-#define HbMath_U32x4_ReplicateZ(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(2, 2, 2, 2))
+#define HbMath_U32x4_ReplicateZ HbMath_S32x4_ReplicateZ
 #define HbMath_S32x4_ReplicateW(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(3, 3, 3, 3))
-#define HbMath_U32x4_ReplicateW(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(3, 3, 3, 3))
+#define HbMath_U32x4_ReplicateW HbMath_S32x4_ReplicateW
 
 #define HbMath_F32x4_StoreX _mm_store_ss
 #define HbMath_F32x4_StoreY(p, v) _mm_store_ss(p, HbMath_F32x4_ReplicateY(v))
 #define HbMath_F32x4_StoreZ(p, v) _mm_store_ss(p, HbMath_F32x4_ReplicateZ(v))
 #define HbMath_F32x4_StoreW(p, v) _mm_store_ss(p, HbMath_F32x4_ReplicateW(v))
 
+HbForceInline HbMath_F32x4 HbMath_F32x4_RotateYZWX(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 3, 2, 1)); }
+HbForceInline HbMath_F32x4 HbMath_F32x4_RotateZWXY(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 0, 3, 2)); }
+HbForceInline HbMath_F32x4 HbMath_F32x4_RotateWXYZ(HbMath_F32x4 v) { return _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 1, 0, 3)); }
+#define HbMath_S32x4_RotateYZWX(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(0, 3, 2, 1))
+#define HbMath_U32x4_RotateYZWX HbMath_S32x4_RotateYZWX
+#define HbMath_S32x4_RotateZWXY(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(1, 0, 3, 2))
+#define HbMath_U32x4_RotateZWXY HbMath_S32x4_RotateZWXY
+#define HbMath_S32x4_RotateWXYZ(v) _mm_shuffle_epi32(v, _MM_SHUFFLE(2, 1, 0, 3))
+#define HbMath_U32x4_RotateWXYZ HbMath_S32x4_RotateWXYZ
+
+#define HbMath_F32x4_ReplaceX _mm_move_ss
+
+#define HbMath_F32x4_CombineXYXY _mm_movelh_ps
+#define HbMath_F32x4_CombineZWZW(a, b) _mm_movehl_ps(b, a)
+
 #define HbMath_F32x4_BitsAsS32x4 _mm_castps_si128
-#define HbMath_F32x4_BitsAsU32x4 _mm_castps_si128
+#define HbMath_F32x4_BitsAsU32x4 HbMath_F32x4_BitsAsS32x4
 #define HbMath_S32x4_BitsAsF32x4 _mm_castsi128_ps
 #define HbMath_S32x4_BitsAsU32x4(v) (v)
-#define HbMath_U32x4_BitsAsF32x4 _mm_castsi128_ps
+#define HbMath_U32x4_BitsAsF32x4 HbMath_S32x4_BitsAsF32x4
 #define HbMath_U32x4_BitsAsS32x4(v) (v)
 #define HbMath_F32x4_ConvertToS32x4 _mm_cvttps_epi32
 #define HbMath_S32x4_ConvertToF32x4 _mm_cvtepi32_ps
@@ -123,22 +139,22 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_ReplicateW(HbMath_F32x4 v) { return _mm_
 
 #define HbMath_S32x4_CompareLess _mm_cmplt_epi32
 #define HbMath_S32x4_CompareEqual _mm_cmpeq_epi32
-#define HbMath_U32x4_CompareEqual _mm_cmpeq_epi32
+#define HbMath_U32x4_CompareEqual HbMath_S32x4_CompareEqual
 #define HbMath_S32x4_CompareGreater _mm_cmpgt_epi32
 
 #define HbMath_F32x4_And _mm_and_ps
 #define HbMath_S32x4_And _mm_and_si128
-#define HbMath_U32x4_And _mm_and_si128
+#define HbMath_U32x4_And HbMath_S32x4_And
 // a & ~b that makes sense, similar to NEON vbicq_u32.
 #define HbMath_F32x4_AndNot(a, b) _mm_andnot_ps(b, a)
 #define HbMath_S32x4_AndNot(a, b) _mm_andnot_si128(b, a)
-#define HbMath_U32x4_AndNot(a, b) _mm_andnot_si128(b, a)
+#define HbMath_U32x4_AndNot HbMath_S32x4_AndNot
 #define HbMath_F32x4_Or _mm_or_ps
 #define HbMath_S32x4_Or _mm_or_si128
-#define HbMath_U32x4_Or _mm_or_si128
+#define HbMath_U32x4_Or HbMath_S32x4_Or
 #define HbMath_F32x4_Xor _mm_xor_ps
 #define HbMath_S32x4_Xor _mm_xor_si128
-#define HbMath_U32x4_Xor _mm_xor_si128
+#define HbMath_U32x4_Xor HbMath_S32x4_Xor
 HbForceInline HbMath_F32x4 HbMath_F32x4_Select(HbMath_F32x4 mask, HbMath_F32x4 a, HbMath_F32x4 b) {
 	return HbMath_F32x4_Or(HbMath_F32x4_And(a, mask), HbMath_F32x4_AndNot(b, mask));
 }
@@ -149,10 +165,10 @@ HbForceInline HbMath_S32x4 HbMath_S32x4_Select(HbMath_S32x4 mask, HbMath_S32x4 a
 
 #define HbMath_F32x4_Add _mm_add_ps
 #define HbMath_S32x4_Add _mm_add_epi32
-#define HbMath_U32x4_Add _mm_add_epi32
+#define HbMath_U32x4_Add HbMath_S32x4_Add
 #define HbMath_F32x4_Subtract _mm_sub_ps
 #define HbMath_S32x4_Subtract _mm_sub_epi32
-#define HbMath_U32x4_Subtract _mm_sub_epi32
+#define HbMath_U32x4_Subtract HbMath_S32x4_Subtract
 #define HbMath_F32x4_Multiply _mm_mul_ps
 #define HbMath_U32x4_Multiply _mm_mul_epu32
 #define HbMath_F32x4_MultiplyAdd(add, mul1, mul2) HbMath_F32x4_Add(add, HbMath_F32x4_Multiply(mul1, mul2))
@@ -283,7 +299,7 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_SinCosX2_Loaded(HbMath_F32x4 x, HbMath_F
 			_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(0, 0, 0, 0)), x2);
 	result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(2, 2, 2, 2)), result, x2);
 	result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinConstants1, cosConstants1, _MM_SHUFFLE(3, 3, 3, 3)), result, x2);
-	result = HbMath_F32x4_MultiplyAdd(_mm_shuffle_ps(sinCosConstants2, sinCosConstants2, _MM_SHUFFLE(1, 0, 1, 0)), result, x2);
+	result = HbMath_F32x4_MultiplyAdd(HbMath_F32x4_CombineXYXY(sinCosConstants2, sinCosConstants2), result, x2);
 	HbMath_F32x4 ones = HbMath_F32x4_ReplicateZ(sinCosConstants2);
 	result = HbMath_F32x4_MultiplyAdd(ones, result, x2);
 	result = HbMath_F32x4_Multiply(result,
@@ -380,7 +396,7 @@ HbForceInline void HbMath_F32_SinCos(float x, float * sine, float * cosine) {
 
 HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_Conjugate(HbMath_F32x4 q) {
 	#if HbPlatform_CPU_x86
-	return _mm_move_ss(HbMath_F32x4_Negate(q), q);
+	return HbMath_F32x4_ReplaceX(HbMath_F32x4_Negate(q), q);
 	#else
 	#error No HbMath_F32x4_QuatConjugate for the target CPU.
 	#endif
