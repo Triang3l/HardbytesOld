@@ -442,13 +442,31 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_Concatenate(HbMath_F32x4 a, HbMath_
 
 // Cross product of lanes 123 of Q and 012 of V, returned in lanes 012. Lane 3 will have 0 if v.w is 0.
 HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_CrossVector(HbMath_F32x4 q, HbMath_F32x4 v) {
-	#if HbPlatform_CPU_x86
 	// x = q.y * v.z - q.z * v.y
 	// y = q.z * v.x - q.x * v.z
 	// z = q.x * v.y - q.y * v.x
+	#if HbPlatform_CPU_x86
 	return HbMath_F32x4_Subtract(
 			HbMath_F32x4_Multiply(_mm_shuffle_ps(q, q, _MM_SHUFFLE(0, 1, 3, 2)), _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 1, 0, 2))),
 			HbMath_F32x4_Multiply(_mm_shuffle_ps(q, q, _MM_SHUFFLE(0, 2, 1, 3)), _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 0, 2, 1))));
+	#else
+	#error No HbMath_F32x4_Quat_CrossVector for the target CPU.
+	#endif
+}
+
+// Cross product of lanes 123 of conjugate(Q) and 012 of V, returned in lanes 012. Lane 3 will have 0 if v.w is 0.
+HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_CrossVectorConjugate(HbMath_F32x4 q, HbMath_F32x4 v) {
+	// x = -q.y * v.z - -q.z * v.y
+	// y = -q.z * v.x - -q.x * v.z
+	// z = -q.x * v.y - -q.y * v.x
+	// Or:
+	// x = q.z * v.y - q.y * v.z
+	// y = q.x * v.z - q.z * v.x
+	// z = q.y * v.x - q.x * v.y
+	#if HbPlatform_CPU_x86
+	return HbMath_F32x4_Subtract(
+			HbMath_F32x4_Multiply(_mm_shuffle_ps(q, q, _MM_SHUFFLE(0, 2, 1, 3)), _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 0, 2, 1))),
+			HbMath_F32x4_Multiply(_mm_shuffle_ps(q, q, _MM_SHUFFLE(0, 1, 3, 2)), _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 1, 0, 2))));
 	#else
 	#error No HbMath_F32x4_Quat_CrossVector for the target CPU.
 	#endif
@@ -461,6 +479,15 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_Apply(HbMath_F32x4 q, HbMath_F32x4 
 	HbMath_F32x4 t = HbMath_F32x4_Quat_CrossVector(q, v);
 	t = HbMath_F32x4_Add(t, t);
 	return HbMath_F32x4_Add(HbMath_F32x4_Add(v, HbMath_F32x4_Multiply(HbMath_F32x4_Quat_ReplicateW(q), t)), HbMath_F32x4_Quat_CrossVector(q, t));
+}
+
+// Lane 3 will have 0 if v.w is 0.
+HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_ApplyConjugate(HbMath_F32x4 q, HbMath_F32x4 v) {
+	// By Fabian @rygorous Giesen.
+	// https://fgiesen.wordpress.com/2019/02/09/rotating-a-single-vector-using-a-quaternion/
+	HbMath_F32x4 t = HbMath_F32x4_Quat_CrossVectorConjugate(q, v);
+	t = HbMath_F32x4_Add(t, t);
+	return HbMath_F32x4_Add(HbMath_F32x4_Add(v, HbMath_F32x4_Multiply(HbMath_F32x4_Quat_ReplicateW(q), t)), HbMath_F32x4_Quat_CrossVectorConjugate(q, t));
 }
 
 // Concatenated in the following order: roll around Z, then pitch around X, then yaw around Y.
