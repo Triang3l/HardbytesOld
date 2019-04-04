@@ -52,7 +52,7 @@ typedef struct HbPack_Info {
 } HbPack_Info;
 
 // validateDirectory must be true for user-generated content, with false only the size of the header will be validated.
-// With validateDirectory, alignment, item offsets, sizes and hash map indices will be validated.
+// With validateDirectory, alignment, item offsets, sizes and hash map indexes will be validated.
 HbBool HbPack_GetInfo(void const * pack, uint32_t packSize, HbPack_Info * info, HbBool validateDirectory);
 
 HbForceInline HbPack_DirectoryEntry const * HbPack_GetDirectory(HbPack_Info const * info) {

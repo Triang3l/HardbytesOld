@@ -98,10 +98,10 @@ typedef uint32_t HbGPU_Buffer_Usage;
 enum {
 	// Read usage modes can be combined, other ones are exclusive.
 
-	HbGPU_Buffer_Usage_Read_Vertices = 1,
-	HbGPU_Buffer_Usage_Read_Constants = HbGPU_Buffer_Usage_Read_Vertices << 1,
-	HbGPU_Buffer_Usage_Read_Indices = HbGPU_Buffer_Usage_Read_Constants << 1,
-	HbGPU_Buffer_Usage_Read_ResourceNonPS = HbGPU_Buffer_Usage_Read_Indices << 1,
+	HbGPU_Buffer_Usage_Read_Vertexes = 1,
+	HbGPU_Buffer_Usage_Read_Constants = HbGPU_Buffer_Usage_Read_Vertexes << 1,
+	HbGPU_Buffer_Usage_Read_Indexes = HbGPU_Buffer_Usage_Read_Constants << 1,
+	HbGPU_Buffer_Usage_Read_ResourceNonPS = HbGPU_Buffer_Usage_Read_Indexes << 1,
 	HbGPU_Buffer_Usage_Read_ResourcePS = HbGPU_Buffer_Usage_Read_ResourceNonPS << 1,
 	HbGPU_Buffer_Usage_Read_CopySource = HbGPU_Buffer_Usage_Read_ResourcePS << 1,
 
@@ -569,9 +569,9 @@ typedef struct HbGPU_Binding {
 typedef struct HbGPU_BindingLayout {
 	#if HbGPU_Implementation_D3D
 	ID3D12RootSignature * d3dRootSignature;
-	// Mappings of HbGPU_Binding indices to root signature indices (skipping static samplers).
+	// Mappings of HbGPU_Binding indexes to root signature indexes (skipping static samplers).
 	// UINT32_MAX for unmapped (including static samplers).
-	uint32_t d3dRootParameterIndices[HbGPU_BindingLayout_MaxBindings];
+	uint32_t d3dRootParameterIndexes[HbGPU_BindingLayout_MaxBindings];
 	#endif
 } HbGPU_BindingLayout;
 
@@ -595,7 +595,7 @@ typedef enum HbGPU_Vertex_Semantic {
 	HbGPU_Vertex_Semantic_Tangent, // UNorm10.10.10.2 (biased) preferred, bitangent sign in W.
 	HbGPU_Vertex_Semantic_TexCoord, // Float32x2 preferred.
 	HbGPU_Vertex_Semantic_Color, // UNorm8x4 preferred.
-	HbGPU_Vertex_Semantic_BlendIndices, // UInt8x4 preferred.
+	HbGPU_Vertex_Semantic_BlendIndexes, // UInt8x4 preferred.
 	HbGPU_Vertex_Semantic_BlendWeights, // UNorm8x4 preferred.
 	HbGPU_Vertex_Semantic_InstancePosition, // Float32x3 preferred.
 	HbGPU_Vertex_Semantic_InstanceRotation, // SNorm16x4 preferred, quaternion.
@@ -608,7 +608,7 @@ enum {
 	HbGPU_Vertex_SemanticBits_Tangent = 1 << HbGPU_Vertex_Semantic_Tangent,
 	HbGPU_Vertex_SemanticBits_TexCoord = 1 << HbGPU_Vertex_Semantic_TexCoord,
 	HbGPU_Vertex_SemanticBits_Color = 1 << HbGPU_Vertex_Semantic_Color,
-	HbGPU_Vertex_SemanticBits_BlendIndices = 1 << HbGPU_Vertex_Semantic_BlendIndices,
+	HbGPU_Vertex_SemanticBits_BlendIndexes = 1 << HbGPU_Vertex_Semantic_BlendIndexes,
 	HbGPU_Vertex_SemanticBits_BlendWeights = 1 << HbGPU_Vertex_Semantic_BlendWeights,
 	HbGPU_Vertex_SemanticBits_InstancePosition = 1 << HbGPU_Vertex_Semantic_InstancePosition,
 	HbGPU_Vertex_SemanticBits_InstanceRotation = 1 << HbGPU_Vertex_Semantic_InstanceRotation,
@@ -899,21 +899,21 @@ typedef struct HbGPU_CmdList_Barrier_Info {
 void HbGPU_CmdList_Barrier(HbGPU_CmdList * cmdList, uint32_t count, HbGPU_CmdList_Barrier_Info const * infos);
 
 // Binding things either in a graphics or in a compute pass.
-void HbGPU_CmdList_BindSetLayout(HbGPU_CmdList * cmdList, HbGPU_BindingLayout * layout); // Bindings are considered invalid after this.
-void HbGPU_CmdList_BindHandles(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t handleOffsetInStore);
-void HbGPU_CmdList_BindSamplers(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t samplerOffsetInStore);
+void HbGPU_CmdList_Bind_SetLayout(HbGPU_CmdList * cmdList, HbGPU_BindingLayout * layout); // Bindings are considered invalid after this.
+void HbGPU_CmdList_Bind_Handles(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t handleOffsetInStore);
+void HbGPU_CmdList_Bind_Samplers(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t samplerOffsetInStore);
 // The offset must be aligned to HbGPU_Buffer_ConstantsAlignment, the size will be aligned internally.
-void HbGPU_CmdList_BindConstantBuffer(HbGPU_CmdList * cmdList, uint32_t bindingIndex, HbGPU_Buffer * buffer, uint32_t offset, uint32_t size);
-void HbGPU_CmdList_BindSmallConstants(HbGPU_CmdList * cmdList, uint32_t bindingIndex, void const * data, uint32_t sizeInDwords);
+void HbGPU_CmdList_Bind_ConstantBuffer(HbGPU_CmdList * cmdList, uint32_t bindingIndex, HbGPU_Buffer * buffer, uint32_t offset, uint32_t size);
+void HbGPU_CmdList_Bind_SmallConstants(HbGPU_CmdList * cmdList, uint32_t bindingIndex, void const * data, uint32_t sizeInDwords);
 
-void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo);
-void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo);
+void HbGPU_CmdList_Draw_End(HbGPU_CmdList * cmdList);
 // Width and height must be non-negative, maximum depth must be bigger than the minimum! The latter is a Direct3D 12 restriction on Nvidia.
-void HbGPU_CmdList_DrawSetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax);
-void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height);
-void HbGPU_CmdList_DrawSetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference);
-void HbGPU_CmdList_DrawSetBlendConstantFactor(HbGPU_CmdList * cmdList, float const factor[4]);
-void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config);
+void HbGPU_CmdList_Draw_SetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax);
+void HbGPU_CmdList_Draw_SetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height);
+void HbGPU_CmdList_Draw_SetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference);
+void HbGPU_CmdList_Draw_SetBlendConstantFactor(HbGPU_CmdList * cmdList, float const factor[4]);
+void HbGPU_CmdList_Draw_SetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config);
 typedef enum HbGPU_CmdList_Primitive {
 	HbGPU_CmdList_Primitive_TriangleList,
 	HbGPU_CmdList_Primitive_TriangleStrip,
@@ -921,36 +921,36 @@ typedef enum HbGPU_CmdList_Primitive {
 	HbGPU_CmdList_Primitive_LineStrip,
 	HbGPU_CmdList_Primitive_PointList,
 } HbGPU_CmdList_Primitive;
-void HbGPU_CmdList_DrawSetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primitive primitive);
+void HbGPU_CmdList_Draw_SetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primitive primitive);
 typedef struct HbGPU_CmdList_VertexStream {
 	HbGPU_Buffer * buffer;
 	uint32_t offset;
 	uint32_t size;
 } HbGPU_CmdList_VertexStream;
-void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
+void HbGPU_CmdList_Draw_SetVertexStreams(HbGPU_CmdList * cmdList,
 		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams);
-void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes);
-void HbGPU_CmdList_DrawNonIndexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
+void HbGPU_CmdList_Draw_SetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes);
+void HbGPU_CmdList_Draw_NonIndexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase);
-void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
+void HbGPU_CmdList_Draw_Indexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase);
 
-void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config);
-void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ);
+void HbGPU_CmdList_Compute_Begin(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Compute_End(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Compute_SetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config);
+void HbGPU_CmdList_Compute_Dispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ);
 
 // CopyBegin/CopyEnd are no-op on copy queue command lists (implementations must implicitly do this on them).
-void HbGPU_CmdList_CopyBegin(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_CopyEnd(HbGPU_CmdList * cmdList);
-void HbGPU_CmdList_CopyBufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,
+void HbGPU_CmdList_Copy_Begin(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Copy_End(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Copy_BufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,
 		HbGPU_Buffer * source, uint32_t sourceOffset, uint32_t size);
 // Buffer offset must be aligned to HbGPU_Image_Copy_SliceAlignment, row pitch must be aligned to HbGPU_Image_Copy_RowAlignment.
-void HbGPU_CmdList_CopyImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
+void HbGPU_CmdList_Copy_ImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
 		HbGPU_Image * image, HbGPU_Image_Slice imageSlice, uint32_t imageX, uint32_t imageY, uint32_t imageZ,
 		HbGPU_Buffer * buffer, uint32_t bufferOffset, uint32_t bufferRowPitchBytes, uint32_t buffer3DLayerPitchRows,
 		uint32_t width, uint32_t height, uint32_t depth);
-void HbGPU_CmdList_CopyImageXImage(HbGPU_CmdList * cmdList,
+void HbGPU_CmdList_Copy_ImageXImage(HbGPU_CmdList * cmdList,
 		HbGPU_Image * target, HbGPU_Image_Slice targetSlice, uint32_t targetX, uint32_t targetY, uint32_t targetZ,
 		HbGPU_Image * source, HbGPU_Image_Slice sourceSlice, uint32_t sourceX, uint32_t sourceY, uint32_t sourceZ,
 		uint32_t width, uint32_t height, uint32_t depth);

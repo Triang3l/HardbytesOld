@@ -34,7 +34,7 @@ typedef enum HbFile_IQM_VertexArray_Type {
 	HbFile_IQM_VertexArray_Type_TexCoord, // Float32x2.
 	HbFile_IQM_VertexArray_Type_Normal, // Float32x3.
 	HbFile_IQM_VertexArray_Type_Tangent, // Float32x4.
-	HbFile_IQM_VertexArray_Type_BlendIndices, // UInt8x4.
+	HbFile_IQM_VertexArray_Type_BlendIndexes, // UInt8x4.
 	HbFile_IQM_VertexArray_Type_BlendWeights, // UNorm8x4.
 	HbFile_IQM_VertexArray_Type_Color, // UNorm8x4.
 	// All values up to Custom are reserved for future use. Any value >= Custom is interpreted as a custom type.

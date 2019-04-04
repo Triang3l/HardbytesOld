@@ -178,7 +178,7 @@ void HbGPU_CmdList_Barrier(HbGPU_CmdList * cmdList, uint32_t count, HbGPU_CmdLis
 	ID3D12GraphicsCommandList_ResourceBarrier(cmdList->d3dGraphicsCommandList, d3dBarrierCount, d3dBarriers);
 }
 
-void HbGPU_CmdList_BindSetLayout(HbGPU_CmdList * cmdList, HbGPU_BindingLayout * layout) {
+void HbGPU_CmdList_Bind_SetLayout(HbGPU_CmdList * cmdList, HbGPU_BindingLayout * layout) {
 	cmdList->d3dCurrentBindingLayout = layout;
 	ID3D12GraphicsCommandList * d3dCommandList = cmdList->d3dGraphicsCommandList;
 	void (STDMETHODCALLTYPE * d3dSetRootSignature)(ID3D12GraphicsCommandList *, ID3D12RootSignature *) = cmdList->d3dIsDrawing ?
@@ -186,16 +186,16 @@ void HbGPU_CmdList_BindSetLayout(HbGPU_CmdList * cmdList, HbGPU_BindingLayout * 
 	d3dSetRootSignature(d3dCommandList, layout->d3dRootSignature);
 }
 
-void HbGPU_CmdList_BindHandles(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t handleOffsetInStore) {
+void HbGPU_CmdList_Bind_Handles(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t handleOffsetInStore) {
 	ID3D12GraphicsCommandList * d3dCommandList = cmdList->d3dGraphicsCommandList;
 	void (STDMETHODCALLTYPE * d3dSetRootDescriptorTable)(ID3D12GraphicsCommandList *, UINT, D3D12_GPU_DESCRIPTOR_HANDLE) = cmdList->d3dIsDrawing ?
 			d3dCommandList->lpVtbl->SetGraphicsRootDescriptorTable : d3dCommandList->lpVtbl->SetComputeRootDescriptorTable;
-	d3dSetRootDescriptorTable(d3dCommandList, cmdList->d3dCurrentBindingLayout->d3dRootParameterIndices[bindingIndex],
+	d3dSetRootDescriptorTable(d3dCommandList, cmdList->d3dCurrentBindingLayout->d3dRootParameterIndexes[bindingIndex],
 			HbGPUi_D3D_HandleStore_GetGPUHandle(cmdList->d3dCurrentHandleStore, handleOffsetInStore));
 }
 
-void HbGPU_CmdList_BindSamplers(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t samplerOffsetInStore) {
-	uint32_t rootParameterIndex = cmdList->d3dCurrentBindingLayout->d3dRootParameterIndices[bindingIndex];
+void HbGPU_CmdList_Bind_Samplers(HbGPU_CmdList * cmdList, uint32_t bindingIndex, uint32_t samplerOffsetInStore) {
+	uint32_t rootParameterIndex = cmdList->d3dCurrentBindingLayout->d3dRootParameterIndexes[bindingIndex];
 	if (rootParameterIndex == UINT32_MAX) {
 		// Static samplers here.
 		return;
@@ -207,21 +207,21 @@ void HbGPU_CmdList_BindSamplers(HbGPU_CmdList * cmdList, uint32_t bindingIndex, 
 			HbGPUi_D3D_SamplerStore_GetGPUHandle(cmdList->d3dCurrentSamplerStore, samplerOffsetInStore));
 }
 
-void HbGPU_CmdList_BindConstantBuffer(HbGPU_CmdList * cmdList, uint32_t bindingIndex, HbGPU_Buffer * buffer, uint32_t offset, uint32_t size) {
+void HbGPU_CmdList_Bind_ConstantBuffer(HbGPU_CmdList * cmdList, uint32_t bindingIndex, HbGPU_Buffer * buffer, uint32_t offset, uint32_t size) {
 	ID3D12GraphicsCommandList * d3dCommandList = cmdList->d3dGraphicsCommandList;
 	void (STDMETHODCALLTYPE * d3dSetRootConstantBufferView)(ID3D12GraphicsCommandList *, UINT, D3D12_GPU_VIRTUAL_ADDRESS) = cmdList->d3dIsDrawing ?
 			d3dCommandList->lpVtbl->SetGraphicsRootConstantBufferView : d3dCommandList->lpVtbl->SetComputeRootConstantBufferView;
-	d3dSetRootConstantBufferView(d3dCommandList, cmdList->d3dCurrentBindingLayout->d3dRootParameterIndices[bindingIndex], buffer->d3dGPUAddress + offset);
+	d3dSetRootConstantBufferView(d3dCommandList, cmdList->d3dCurrentBindingLayout->d3dRootParameterIndexes[bindingIndex], buffer->d3dGPUAddress + offset);
 }
 
-void HbGPU_CmdList_BindSmallConstants(HbGPU_CmdList * cmdList, uint32_t bindingIndex, void const * data, uint32_t sizeInDwords) {
+void HbGPU_CmdList_Bind_SmallConstants(HbGPU_CmdList * cmdList, uint32_t bindingIndex, void const * data, uint32_t sizeInDwords) {
 	ID3D12GraphicsCommandList * d3dCommandList = cmdList->d3dGraphicsCommandList;
 	void (STDMETHODCALLTYPE * d3dSetRoot32BitConstants)(ID3D12GraphicsCommandList *, UINT, UINT, void const *, UINT) = cmdList->d3dIsDrawing ?
 			d3dCommandList->lpVtbl->SetGraphicsRoot32BitConstants : d3dCommandList->lpVtbl->SetComputeRoot32BitConstants;
-	d3dSetRoot32BitConstants(d3dCommandList, cmdList->d3dCurrentBindingLayout->d3dRootParameterIndices[bindingIndex], sizeInDwords, data, 0);
+	d3dSetRoot32BitConstants(d3dCommandList, cmdList->d3dCurrentBindingLayout->d3dRootParameterIndexes[bindingIndex], sizeInDwords, data, 0);
 }
 
-void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo) {
+void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const * passInfo) {
 	cmdList->d3dIsDrawing = HbTrue;
 	cmdList->d3dCurrentDrawPass = *passInfo;
 	ID3D12GraphicsCommandList * d3dCommandList = cmdList->d3dGraphicsCommandList;
@@ -281,7 +281,7 @@ void HbGPU_CmdList_DrawBegin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const 
 	}
 }
 
-void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList) {
+void HbGPU_CmdList_Draw_End(HbGPU_CmdList * cmdList) {
 	ID3D12GraphicsCommandList * d3dCommandList = cmdList->d3dGraphicsCommandList;
 	D3D12_DISCARD_REGION discardRegion = { .NumSubresources = 1 };
 	for (uint32_t rtIndex = 0; rtIndex < cmdList->d3dCurrentDrawPass.colorRTCount; ++rtIndex) {
@@ -325,30 +325,30 @@ void HbGPU_CmdList_DrawEnd(HbGPU_CmdList * cmdList) {
 	cmdList->d3dIsDrawing = HbFalse;
 }
 
-void HbGPU_CmdList_DrawSetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax) {
+void HbGPU_CmdList_Draw_SetViewport(HbGPU_CmdList * cmdList, float left, float top, float width, float height, float depthMin, float depthMax) {
 	D3D12_VIEWPORT viewport = { .TopLeftX = left, .TopLeftY = top, .Width = width, .Height = height, .MinDepth = depthMin, .MaxDepth = depthMax };
 	ID3D12GraphicsCommandList_RSSetViewports(cmdList->d3dGraphicsCommandList, 1, &viewport);
 }
 
-void HbGPU_CmdList_DrawSetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height) {
+void HbGPU_CmdList_Draw_SetScissor(HbGPU_CmdList * cmdList, int32_t left, int32_t top, uint32_t width, uint32_t height) {
 	D3D12_RECT scissor = { .left = left, .top = top, .right = left + width, .bottom = top + height };
 	ID3D12GraphicsCommandList_RSSetScissorRects(cmdList->d3dGraphicsCommandList, 1, &scissor);
 }
 
-void HbGPU_CmdList_DrawSetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference) {
+void HbGPU_CmdList_Draw_SetStencilReference(HbGPU_CmdList * cmdList, uint8_t reference) {
 	ID3D12GraphicsCommandList_OMSetStencilRef(cmdList->d3dGraphicsCommandList, reference);
 }
 
-void HbGPU_CmdList_DrawSetBlendConstantFactor(HbGPU_CmdList * cmdList, float const factor[4]) {
+void HbGPU_CmdList_Draw_SetBlendConstantFactor(HbGPU_CmdList * cmdList, float const factor[4]) {
 	ID3D12GraphicsCommandList_OMSetBlendFactor(cmdList->d3dGraphicsCommandList, factor);
 }
 
-void HbGPU_CmdList_DrawSetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config) {
+void HbGPU_CmdList_Draw_SetConfig(HbGPU_CmdList * cmdList, HbGPU_DrawConfig * config) {
 	cmdList->d3dCurrentDrawConfig = config;
 	ID3D12GraphicsCommandList_SetPipelineState(cmdList->d3dGraphicsCommandList, config->d3dPipelineState);
 }
 
-void HbGPU_CmdList_DrawSetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primitive primitive) {
+void HbGPU_CmdList_Draw_SetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primitive primitive) {
 	D3D_PRIMITIVE_TOPOLOGY d3dTopology;
 	switch (primitive) {
 	case HbGPU_CmdList_Primitive_TriangleList: d3dTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST; break;
@@ -357,13 +357,13 @@ void HbGPU_CmdList_DrawSetPrimitive(HbGPU_CmdList * cmdList, HbGPU_CmdList_Primi
 	case HbGPU_CmdList_Primitive_LineStrip: d3dTopology = D3D10_PRIMITIVE_TOPOLOGY_LINESTRIP; break;
 	case HbGPU_CmdList_Primitive_PointList: d3dTopology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST; break;
 	default:
-		HbFeedback_Assert(HbFalse, "HbGPU_CmdList_DrawSetPrimitive", "Unknwown primitive type %u.", (uint32_t) primitive);
+		HbFeedback_Assert(HbFalse, "HbGPU_CmdList_Draw_SetPrimitive", "Unknwown primitive type %u.", (uint32_t) primitive);
 		return;
 	}
 	ID3D12GraphicsCommandList_IASetPrimitiveTopology(cmdList->d3dGraphicsCommandList, d3dTopology);
 }
 
-void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
+void HbGPU_CmdList_Draw_SetVertexStreams(HbGPU_CmdList * cmdList,
 		uint32_t firstStream, uint32_t streamCount, HbGPU_CmdList_VertexStream const * streams) {
 	D3D12_VERTEX_BUFFER_VIEW d3dVertexBuffers[D3D12_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
 	for (uint32_t streamIndex = 0; streamIndex < streamCount; ++streamIndex) {
@@ -376,7 +376,7 @@ void HbGPU_CmdList_DrawSetVertexStreams(HbGPU_CmdList * cmdList,
 	ID3D12GraphicsCommandList_IASetVertexBuffers(cmdList->d3dGraphicsCommandList, firstStream, streamCount, d3dVertexBuffers);
 }
 
-void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes) {
+void HbGPU_CmdList_Draw_SetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer, uint32_t offset, uint32_t sizeInBytes) {
 	D3D12_INDEX_BUFFER_VIEW d3dIndexBuffer = {
 		.BufferLocation = buffer->d3dGPUAddress + offset,
 		.SizeInBytes = sizeInBytes,
@@ -385,42 +385,42 @@ void HbGPU_CmdList_DrawSetIndexes(HbGPU_CmdList * cmdList, HbGPU_Buffer * buffer
 	ID3D12GraphicsCommandList_IASetIndexBuffer(cmdList->d3dGraphicsCommandList, &d3dIndexBuffer);
 }
 
-void HbGPU_CmdList_DrawNonIndexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
+void HbGPU_CmdList_Draw_NonIndexed(HbGPU_CmdList * cmdList, uint32_t vertexCount, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase) {
 	ID3D12GraphicsCommandList_DrawInstanced(cmdList->d3dGraphicsCommandList, vertexCount, instanceCount, vertexIDBase, instanceBase);
 }
 
-void HbGPU_CmdList_DrawIndexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
+void HbGPU_CmdList_Draw_Indexed(HbGPU_CmdList * cmdList, uint32_t indexCount, uint32_t indexFirst, int32_t vertexIDBase,
 		uint32_t instanceCount, uint32_t instanceBase) {
 	ID3D12GraphicsCommandList_DrawIndexedInstanced(cmdList->d3dGraphicsCommandList,
 			indexCount, instanceCount, indexFirst, vertexIDBase, instanceBase);
 }
 
-void HbGPU_CmdList_ComputeBegin(HbGPU_CmdList * cmdList) {
-	HbFeedback_Assert(!cmdList->d3dIsDrawing, "HbGPU_CmdList_ComputeBegin", "Drawing pass must be ended before computing.");
+void HbGPU_CmdList_Compute_Begin(HbGPU_CmdList * cmdList) {
+	HbFeedback_Assert(!cmdList->d3dIsDrawing, "HbGPU_CmdList_Compute_Begin", "Drawing pass must be ended before computing.");
 	cmdList->d3dIsDrawing = HbFalse;
 }
 
-void HbGPU_CmdList_ComputeEnd(HbGPU_CmdList * cmdList) {}
+void HbGPU_CmdList_Compute_End(HbGPU_CmdList * cmdList) {}
 
-void HbGPU_CmdList_ComputeSetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config) {
+void HbGPU_CmdList_Compute_SetConfig(HbGPU_CmdList * cmdList, HbGPU_ComputeConfig * config) {
 	ID3D12GraphicsCommandList_SetPipelineState(cmdList->d3dGraphicsCommandList, config->d3dPipelineState);
 }
 
-void HbGPU_CmdList_ComputeDispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ) {
+void HbGPU_CmdList_Compute_Dispatch(HbGPU_CmdList * cmdList, uint32_t groupsX, uint32_t groupsY, uint32_t groupsZ) {
 	ID3D12GraphicsCommandList_Dispatch(cmdList->d3dGraphicsCommandList, groupsX, groupsY, groupsZ);
 }
 
-void HbGPU_CmdList_CopyBegin(HbGPU_CmdList * cmdList) {}
+void HbGPU_CmdList_Copy_Begin(HbGPU_CmdList * cmdList) {}
 
-void HbGPU_CmdList_CopyEnd(HbGPU_CmdList * cmdList) {}
+void HbGPU_CmdList_Copy_End(HbGPU_CmdList * cmdList) {}
 
-void HbGPU_CmdList_CopyBufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,
+void HbGPU_CmdList_Copy_BufferXBuffer(HbGPU_CmdList * cmdList, HbGPU_Buffer * target, uint32_t targetOffset,
 		HbGPU_Buffer * source, uint32_t sourceOffset, uint32_t size) {
 	ID3D12GraphicsCommandList_CopyBufferRegion(cmdList->d3dGraphicsCommandList, target->d3dResource, targetOffset, source->d3dResource, sourceOffset, size);
 }
 
-void HbGPU_CmdList_CopyImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
+void HbGPU_CmdList_Copy_ImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
 		HbGPU_Image * image, HbGPU_Image_Slice imageSlice, uint32_t imageX, uint32_t imageY, uint32_t imageZ,
 		HbGPU_Buffer * buffer, uint32_t bufferOffset, uint32_t bufferRowPitchBytes, uint32_t buffer3DLayerPitchRows,
 		uint32_t width, uint32_t height, uint32_t depth) {
@@ -461,7 +461,7 @@ void HbGPU_CmdList_CopyImageXBuffer(HbGPU_CmdList * cmdList, HbBool toBuffer,
 	}
 }
 
-void HbGPU_CmdList_CopyImageXImage(HbGPU_CmdList * cmdList,
+void HbGPU_CmdList_Copy_ImageXImage(HbGPU_CmdList * cmdList,
 		HbGPU_Image * target, HbGPU_Image_Slice targetSlice, uint32_t targetX, uint32_t targetY, uint32_t targetZ,
 		HbGPU_Image * source, HbGPU_Image_Slice sourceSlice, uint32_t sourceX, uint32_t sourceY, uint32_t sourceZ,
 		uint32_t width, uint32_t height, uint32_t depth) {

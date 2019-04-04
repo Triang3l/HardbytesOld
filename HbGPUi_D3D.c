@@ -280,10 +280,10 @@ D3D12_RESOURCE_STATES HbGPUi_D3D_Buffer_Usage_ToStates(HbGPU_Buffer_Usage usage)
 		break;
 	}
 	D3D12_RESOURCE_STATES states = (D3D12_RESOURCE_STATES) 0;
-	if (usage & (HbGPU_Buffer_Usage_Read_Vertices | HbGPU_Buffer_Usage_Read_Constants)) {
+	if (usage & (HbGPU_Buffer_Usage_Read_Vertexes | HbGPU_Buffer_Usage_Read_Constants)) {
 		states |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 	}
-	if (usage & HbGPU_Buffer_Usage_Read_Indices) {
+	if (usage & HbGPU_Buffer_Usage_Read_Indexes) {
 		states |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
 	}
 	if (usage & HbGPU_Buffer_Usage_Read_ResourceNonPS) {
@@ -1248,7 +1248,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 	if (bindingCount > HbGPU_BindingLayout_MaxBindings) {
 		return HbFalse;
 	}
-	memset(layout->d3dRootParameterIndices, UINT8_MAX, sizeof(layout->d3dRootParameterIndices));
+	memset(layout->d3dRootParameterIndexes, UINT8_MAX, sizeof(layout->d3dRootParameterIndexes));
 	D3D12_ROOT_PARAMETER parameters[HbGPU_BindingLayout_MaxBindings];
 	uint32_t parameterCount = 0;
 	uint32_t staticSamplerCount = 0;
@@ -1290,7 +1290,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 				d3dRange->RegisterSpace = 0;
 				d3dRange->OffsetInDescriptorsFromTableStart = range->handleOffset;
 			}
-			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			break;
 		case HbGPU_Binding_Type_SamplerRangeSet: {
 			uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
@@ -1317,20 +1317,20 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 				d3dRange->RegisterSpace = 0;
 				d3dRange->OffsetInDescriptorsFromTableStart = range->samplerOffset;
 			}
-			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			break;
 		} case HbGPU_Binding_Type_ConstantBuffer:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 			parameter->Descriptor.ShaderRegister = binding->binding.constantBuffer.bindRegister.cbufferResourceEdit;
 			parameter->Descriptor.RegisterSpace = 0;
-			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			break;
 		case HbGPU_Binding_Type_SmallConstants:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 			parameter->Constants.ShaderRegister = binding->binding.smallConstants.bindRegister.cbufferResourceEdit;
 			parameter->Constants.RegisterSpace = 0;
 			parameter->Constants.Num32BitValues = binding->binding.smallConstants.sizeInDwords;
-			layout->d3dRootParameterIndices[bindingIndex] = parameterCount++;
+			layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			break;
 		default:
 			return HbFalse;
@@ -1570,7 +1570,7 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 		case HbGPU_Vertex_Semantic_Tangent: inputElementDesc->SemanticName = "TANGENT"; break;
 		case HbGPU_Vertex_Semantic_TexCoord: inputElementDesc->SemanticName = "TEXCOORD"; break;
 		case HbGPU_Vertex_Semantic_Color: inputElementDesc->SemanticName = "COLOR"; break;
-		case HbGPU_Vertex_Semantic_BlendIndices: inputElementDesc->SemanticName = "BLENDINDICES"; break;
+		case HbGPU_Vertex_Semantic_BlendIndexes: inputElementDesc->SemanticName = "BLENDINDICES"; break;
 		case HbGPU_Vertex_Semantic_BlendWeights: inputElementDesc->SemanticName = "BLENDWEIGHTS"; break;
 		case HbGPU_Vertex_Semantic_InstancePosition: inputElementDesc->SemanticName = "INSTANCEPOSITION"; break;
 		case HbGPU_Vertex_Semantic_InstanceRotation: inputElementDesc->SemanticName = "INSTANCEROTATION"; break;

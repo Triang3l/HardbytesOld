@@ -276,9 +276,9 @@ void HbMemory_PO2Alloc_Init(HbMemory_PO2Alloc * allocator, HbMemory_Tag * tag,
 				smallestNodeSizeLog2, largestNodeSizeLog2);
 	}
 	if (largestNodeSizeLog2 > 31) {
-		// Too large indices, can't return them from Alloc and take them in Free correctly
+		// Too large indexes, can't return them from Alloc and take them in Free correctly
 		// (the full range plus one, for zero-size allocations, is needed).
-		HbFeedback_Crash("HbMemory_PO2Alloc_Init", "Requested too many bits for indices (%u, larger than 31).", largestNodeSizeLog2);
+		HbFeedback_Crash("HbMemory_PO2Alloc_Init", "Requested too many bits for indexes (%u, larger than 31).", largestNodeSizeLog2);
 	}
 	uint32_t deepestLevel = largestNodeSizeLog2 - smallestNodeSizeLog2;
 	if (deepestLevel >= HbMemoryi_PO2Alloc_MaxLevels) {

@@ -1,4 +1,4 @@
-// Clockwise triangle. Requires 3 vertices.
+// Clockwise triangle. Requires 3 vertexes.
 void main(uint vertexID : SV_VertexID, out float2 texCoord : TEXCOORD0, out float4 position : SV_Position) {
 	texCoord = float2(vertexID & uint2(1u, 2u));
 	texCoord.x *= 2.0f;

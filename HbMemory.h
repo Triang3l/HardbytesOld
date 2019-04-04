@@ -52,7 +52,7 @@ HbBool HbMemory_DoRealloc(void * * memory, size_t size, char const * fileName, u
 void HbMemory_Free(void * memory);
 
 /************************************************************************
- * Power of two (buddy) allocator for data indices (not for data itself)
+ * Power of two (buddy) allocator for data indexes (not for data itself)
  ************************************************************************/
 
 // For (1 << n) nodes at the deepest level, (n - 1) bits are needed to store the index.
@@ -87,7 +87,7 @@ typedef struct HbMemory_PO2Alloc {
 	HbMemoryi_PO2Alloc_Node * nodes;
 	uint32_t deepestLevel;
 	uint32_t smallestNodeSizeLog2;
-	// Absolute indices of first free nodes on each level.
+	// Absolute indexes of first free nodes on each level.
 	// Level 0 is the head level, level deepestLevel contains the smallest allocations.
 	int32_t firstFree[HbMemoryi_PO2Alloc_MaxLevels];
 } HbMemory_PO2Alloc;
