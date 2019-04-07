@@ -184,6 +184,7 @@
     <ClCompile Include="HbGPUi_D3D.c" />
     <ClCompile Include="HbGPUi_D3D_CmdList.c" />
     <ClCompile Include="HbHash.c" />
+    <ClCompile Include="HbInput.c" />
     <ClCompile Include="HbInput_Windows.c" />
     <ClCompile Include="HbLoad_GPUCopier.c" />
     <ClCompile Include="HbMath.c" />

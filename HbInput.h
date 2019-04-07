@@ -1,7 +1,16 @@
+#ifndef HbInclude_HbInput
+#define HbInclude_HbInput
 #include "HbCommon.h"
+#if HbPlatform_OS_WindowsDesktop
+#include <Windows.h>
+#endif
 
 void HbInput_Init();
 void HbInput_Shutdown();
+
+#if HbPlatform_OS_WindowsDesktop
+HbBool HbInput_Windows_HandleMessage(HWND window, UINT message, WPARAM wParam, LPARAM lParam); // True if safe to call DefWindowProc.
+#endif
 
 /***********
  * Gamepads
@@ -32,4 +41,12 @@ HbInput_Gamepad const * HbInput_Gamepad_GetByIndex(uint32_t index); // Keep the 
 // Returns nullptr if not connected.
 // Handles are never reused, this can also be used to check if a gamepad has been disconnected in the past.
 // The returned state is valid until the next update.
+// Implemented in common, not per-OS, code.
 HbInput_Gamepad const * HbInput_Gamepad_GetByHandle(uint32_t handle);
+
+#if HbPlatform_OS_WindowsDesktop
+// Windows.Gaming.Input is used by default (after HbInput_Init), but XInput 1.4 can be enabled to support things like DLL overrides.
+void HbInput_Windows_Gamepad_UseXInput(HbBool useXInput);
+#endif
+
+#endif
