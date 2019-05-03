@@ -115,6 +115,13 @@ inline size_t HbTextU8_LengthU16Elems(HbTextU8 const * text) {
 	return length;
 }
 
+// Places a character in the buffer if possible, returning the number of elements actually written.
+// Does not null-terminate (and the buffer size doesn't include the terminator)!
+uint32_t HbTextU8_WriteValidChar(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU32 character);
+
+// Allocate HbTextU16_LengthU8Elems elements for this.
+size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU16 const * source);
+
 /*********
  * UTF-16
  *********/
@@ -134,9 +141,17 @@ inline size_t HbTextU16_LengthChars(HbTextU16 const * text) {
 	}
 	return length;
 };
+inline size_t HbTextU16_LengthU8Elems(HbTextU16 const * text) {
+	size_t length = 0;
+	HbTextU32 character;
+	while ((character = HbTextU16_NextChar(&text)) != '\0') {
+		length += HbTextU8_ValidCharElemCount(character);
+	}
+	return length;
+}
 
 // Places a character in the buffer if possible, returning the number of elements actually written.
-// Does not null-terminate!
+// Does not null-terminate (and the buffer size doesn't include the terminator)!
 uint32_t HbTextU16_WriteValidChar(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU32 character);
 
 // This actually validates characters - size in elements may be changed if there are invalid characters!

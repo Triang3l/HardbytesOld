@@ -85,6 +85,53 @@ HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor) {
 	return HbText_InvalidSubstitute;
 }
 
+uint32_t HbTextU8_WriteValidChar(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU32 character) {
+	uint32_t elemCount = HbTextU8_ValidCharElemCount(character);
+	if (targetBufferSizeElems < elemCount) {
+		return 0;
+	}
+	switch (elemCount) {
+	case 1:
+		target[0] = (HbTextU8) character;
+		break;
+	case 2:
+		target[0] = (HbTextU8) ((6 << 5) | (character >> 6));
+		target[1] = (HbTextU8) ((2 << 6) | (character & 63));
+		break;
+	case 3:
+		target[0] = (HbTextU8) ((14 << 4) | (character >> 12));
+		target[1] = (HbTextU8) ((2 << 6) | ((character >> 6) & 63));
+		target[2] = (HbTextU8) ((2 << 6) | (character & 63));
+		break;
+	case 4:
+		target[0] = (HbTextU8) ((30 << 3) | (character >> 18));
+		target[1] = (HbTextU8) ((2 << 6) | ((character >> 12) & 63));
+		target[2] = (HbTextU8) ((2 << 6) | ((character >> 6) & 63));
+		target[3] = (HbTextU8) ((2 << 6) | (character & 63));
+		break;
+	// Otherwise may be 0 (for the null character).
+	}
+	return elemCount;
+}
+
+size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU16 const * source) {
+	HbTextU8 * targetStart = target;
+	if (targetBufferSizeElems != 0) {
+		--targetBufferSizeElems;
+		HbTextU32 character;
+		while (targetBufferSizeElems != 0 && (character = HbTextU16_NextChar(&source)) != '\0') {
+			uint32_t written = HbTextU8_WriteValidChar(target, targetBufferSizeElems, character);
+			if (written == 0) {
+				break;
+			}
+			target += written;
+			targetBufferSizeElems -= written;
+		}
+		*target = '\0';
+	}
+	return (size_t) (target - targetStart);
+}
+
 /*********
  * UTF-16
  *********/
