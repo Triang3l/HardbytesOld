@@ -32,7 +32,7 @@ static uint32_t HbInputi_Windows_Gamepad_XInput_Recheck;
 #define HbInputi_Windows_Gamepad_XInput_Recheck_All ((1 << XUSER_MAX_COUNT) - 1)
 #endif
 
-void HbInput_Init() {
+void HbInputi_InitPlatform() {
 	HbInput_Windows_Gamepad_NextHandle = 1;
 
 	HbInputi_Windows_Gamepad_ConnectedCount = 0;
@@ -64,7 +64,7 @@ static void HbInputi_Windows_Gamepad_ReleaseGamepads() {
 	HbInputi_Windows_Gamepad_ConnectedCount = 0;
 }
 
-void HbInput_Shutdown() {
+void HbInputi_ShutdownPlatform() {
 	HbInputi_Windows_Gamepad_ReleaseGamepads();
 	HbInputi_Windows_Gamepad_Statics->lpVtbl->Release(HbInputi_Windows_Gamepad_Statics);
 }
