@@ -262,13 +262,15 @@ void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const
 			break;
 		}
 		switch (passInfo->stencilActions.beginAction) {
-		case HbGPU_DrawPass_BeginAction_Discard: {
-			HbGPU_Image_Slice stencilSlice = passInfo->depthStencilRT.d3dImageRef.slice;
-			stencilSlice.stencil = 1;
-			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&passInfo->depthStencilRT.d3dImageRef.image->info, stencilSlice);
-			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, passInfo->depthStencilRT.d3dImageRef.image->d3dResource, &discardRegion);
+		case HbGPU_DrawPass_BeginAction_Discard:
+			{
+				HbGPU_Image_Slice stencilSlice = passInfo->depthStencilRT.d3dImageRef.slice;
+				stencilSlice.stencil = 1;
+				discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&passInfo->depthStencilRT.d3dImageRef.image->info, stencilSlice);
+				ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, passInfo->depthStencilRT.d3dImageRef.image->d3dResource, &discardRegion);
+			}
 			break;
-		} case HbGPU_DrawPass_BeginAction_Clear:
+		case HbGPU_DrawPass_BeginAction_Clear:
 			depthStencilClearFlags |= D3D12_CLEAR_FLAG_DEPTH;
 			break;
 		default:

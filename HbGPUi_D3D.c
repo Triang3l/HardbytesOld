@@ -1292,34 +1292,36 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 			}
 			layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			break;
-		case HbGPU_Binding_Type_SamplerRangeSet: {
-			uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
-			if (rangeCount == 0) {
-				continue; // HbStackAlloc safety.
-			}
-			HbGPU_Binding_SamplerRange const * ranges = binding->binding.samplerRangeSet.ranges;
-			if (binding->binding.samplerRangeSet.staticSamplers != HbNull) {
-				for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
-					staticSamplerCount += ranges[rangeIndex].samplerCount;
+		case HbGPU_Binding_Type_SamplerRangeSet:
+			{
+				uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
+				if (rangeCount == 0) {
+					continue; // HbStackAlloc safety.
 				}
-				continue;
+				HbGPU_Binding_SamplerRange const * ranges = binding->binding.samplerRangeSet.ranges;
+				if (binding->binding.samplerRangeSet.staticSamplers != HbNull) {
+					for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
+						staticSamplerCount += ranges[rangeIndex].samplerCount;
+					}
+					continue;
+				}
+				parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+				parameter->DescriptorTable.NumDescriptorRanges = rangeCount;
+				D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(rangeCount * sizeof(D3D12_DESCRIPTOR_RANGE));
+				parameter->DescriptorTable.pDescriptorRanges = d3dRanges;
+				for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
+					HbGPU_Binding_SamplerRange const * range = &ranges[rangeIndex];
+					D3D12_DESCRIPTOR_RANGE * d3dRange = &d3dRanges[rangeIndex];
+					d3dRange->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+					d3dRange->NumDescriptors = range->samplerCount;
+					d3dRange->BaseShaderRegister = range->firstRegister;
+					d3dRange->RegisterSpace = 0;
+					d3dRange->OffsetInDescriptorsFromTableStart = range->samplerOffset;
+				}
+				layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			}
-			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-			parameter->DescriptorTable.NumDescriptorRanges = rangeCount;
-			D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(rangeCount * sizeof(D3D12_DESCRIPTOR_RANGE));
-			parameter->DescriptorTable.pDescriptorRanges = d3dRanges;
-			for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
-				HbGPU_Binding_SamplerRange const * range = &ranges[rangeIndex];
-				D3D12_DESCRIPTOR_RANGE * d3dRange = &d3dRanges[rangeIndex];
-				d3dRange->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-				d3dRange->NumDescriptors = range->samplerCount;
-				d3dRange->BaseShaderRegister = range->firstRegister;
-				d3dRange->RegisterSpace = 0;
-				d3dRange->OffsetInDescriptorsFromTableStart = range->samplerOffset;
-			}
-			layout->d3dRootParameterIndexes[bindingIndex] = parameterCount++;
 			break;
-		} case HbGPU_Binding_Type_ConstantBuffer:
+		case HbGPU_Binding_Type_ConstantBuffer:
 			parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 			parameter->Descriptor.ShaderRegister = binding->binding.constantBuffer.bindRegister.cbufferResourceEdit;
 			parameter->Descriptor.RegisterSpace = 0;

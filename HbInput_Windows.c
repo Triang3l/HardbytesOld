@@ -72,6 +72,27 @@ void HbInputi_ShutdownPlatform() {
 #if HbPlatform_OS_WindowsDesktop
 HbBool HbInput_Windows_HandleMessage(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
 	switch (message) {
+	case WM_KILLFOCUS:
+		memset(HbInput_Button_AreDown, 0, sizeof(HbInput_Button_AreDown));
+		break;
+	case WM_KEYDOWN:
+		if (!(lParam & ((LPARAM) 1 << 30))) {
+			// HbInput_Button codes are Windows scancodes.
+			uint32_t scanCode = (uint32_t) ((lParam >> 16) & 255);
+			if (scanCode != 0 && scanCode < (uint32_t) HbInput_Button_Code_Count) {
+				HbInput_Button_AreDown[scanCode >> 5] |= (uint32_t) 1 << (scanCode & 31);
+			}
+		}
+		break;
+	case WM_KEYUP:
+		{
+			// HbInput_Button codes are Windows scancodes.
+			uint32_t scanCode = (uint32_t) ((lParam >> 16) & 255);
+			if (scanCode != 0 && scanCode < (uint32_t) HbInput_Button_Code_Count) {
+				HbInput_Button_AreDown[scanCode >> 5] &= ~((uint32_t) 1 << (scanCode & 31));
+			}
+		}
+		break;
 	case WM_DEVICECHANGE:
 		HbInputi_Windows_Gamepad_XInput_Recheck = HbInputi_Windows_Gamepad_XInput_Recheck_All;
 		break;

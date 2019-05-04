@@ -31,13 +31,18 @@
 
 #define HbMath_VecAligned HbAligned(16)
 
+#define HbMath_F64_Sqrt2 1.41421356237309504880
+#define HbMath_F32_Sqrt2 ((float) HbMath_F64_Sqrt2)
+#define HbMath_F64_InverseSqrt2 0.707106781186547524401
+#define HbMath_F32_InverseSqrt2 ((float) HbMath_F64_InverseSqrt2)
+
 #define HbMath_F64_Pi 3.14159265358979323846
 #define HbMath_F32_Pi ((float) HbMath_F64_Pi)
-#define HbMath_F64_InvPi 0.318309886183790671538
-#define HbMath_F32_InvPi ((float) HbMath_F64_InvPi)
+#define HbMath_F64_InversePi 0.318309886183790671538
+#define HbMath_F32_InversePi ((float) HbMath_F64_InversePi)
 extern HbMath_VecAligned float const HbMath_F32x4_PiConstants[4]; // X: pi, Y: pi/2, Z: 2pi, W: 0.5/pi.
 #define HbMath_F32_Deg2Rad (HbMath_F32_Pi * (1.0f / 180.0f))
-#define HbMath_F32_Rad2Deg (180.0f * HbMath_F32_InvPi)
+#define HbMath_F32_Rad2Deg (180.0f * HbMath_F32_InversePi)
 
 // For 11-degree sine and 10-degree cosine minimax approximations, from DirectXMath XMScalarSinCos/XMVectorSinCos.
 #define HbMath_F32_Sin_C1 -2.3889859e-8f
@@ -350,7 +355,7 @@ HbForceInline void HbMath_F32x4_SinCosX4(HbMath_F32x4 x, HbMath_F32x4 * sine, Hb
 
 HbForceInline float HbMath_F32_Sin(float x) {
 	// Map in [-pi, pi], x = 2*pi*quotient + remainder.
-	x -= 2.0f * HbMath_F32_Pi * (float) (int32_t) ((0.5f * HbMath_F32_InvPi * x) + (x >= 0.0f ? 0.5f : -0.5f));
+	x -= 2.0f * HbMath_F32_Pi * (float) (int32_t) ((0.5f * HbMath_F32_InversePi * x) + (x >= 0.0f ? 0.5f : -0.5f));
 	// Map in [-pi/2,pi/2] with sin(y) = sin(x).
 	if (x > 0.5f * HbMath_F32_Pi) {
 		x = HbMath_F32_Pi - x;
@@ -363,7 +368,7 @@ HbForceInline float HbMath_F32_Sin(float x) {
 }
 HbForceInline float HbMath_F32_Cos(float x) {
 	// Map in [-pi, pi], x = 2*pi*quotient + remainder.
-	x -= 2.0f * HbMath_F32_Pi * (float) (int32_t) ((0.5f * HbMath_F32_InvPi * x) + (x >= 0.0f ? 0.5f : -0.5f));
+	x -= 2.0f * HbMath_F32_Pi * (float) (int32_t) ((0.5f * HbMath_F32_InversePi * x) + (x >= 0.0f ? 0.5f : -0.5f));
 	// Map in [-pi/2,pi/2] with cos(y) = sign*cos(x).
 	float sign;
 	if (x > 0.5f * HbMath_F32_Pi) {
