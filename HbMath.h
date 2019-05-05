@@ -229,6 +229,9 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_RoundToNearest(HbMath_F32x4 v) {
 
 // Based on DirectXMath XMScalar/VectorSinCos.
 
+HbForceInline float HbMath_F32_AngleToPlusMinusPi(float angle) {
+	return angle - roundf(angle * (0.5f * HbMath_F32_InversePi)) * (2.0f * HbMath_F32_Pi);
+}
 HbForceInline HbMath_F32x4 HbMath_F32x4_AnglesToPlusMinusPi_Loaded(HbMath_F32x4 angles, HbMath_F32x4 piConstants) {
 	HbMath_F32x4 normalized = HbMath_F32x4_Multiply(angles, HbMath_F32x4_ReplicateW(piConstants));
 	return HbMath_F32x4_Subtract(angles, HbMath_F32x4_Multiply(HbMath_F32x4_RoundToNearest(normalized), HbMath_F32x4_ReplicateZ(piConstants)));

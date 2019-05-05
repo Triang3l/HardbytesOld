@@ -2,6 +2,8 @@
 #define HbInclude_HbShader
 #include "HbGPU.h"
 
+#define HbShader_GeoGen_Icosphere_VertexCount 240
+
 #if HbGPU_Implementation_D3D
 extern BYTE const HbShader_FullScreenTexCoordVS[];
 extern size_t const HbShader_FullScreenTexCoordVS_Size;
@@ -10,4 +12,3 @@ extern size_t const HbShader_FullScreenVS_Size;
 #endif
 
 #endif
-

@@ -130,6 +130,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="HbShader\HbShader_GeoGen_Icosphere.hlsli">
+      <Filter>Header Files\HbShader</Filter>
+    </None>
     <None Include="HbShader\HbShader_Math.hlsli">
       <Filter>Header Files\HbShader</Filter>
     </None>

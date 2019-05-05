@@ -196,6 +196,7 @@
     <ClCompile Include="HbText.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="HbShader\HbShader_GeoGen_Icosphere.hlsli" />
     <None Include="HbShader\HbShader_Math.hlsli" />
   </ItemGroup>
   <ItemGroup>
