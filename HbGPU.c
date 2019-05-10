@@ -7,6 +7,9 @@
  ********/
 
 HbBool HbGPU_Image_Info_CleanupAndValidate(HbGPU_Image_Info * info) {
+	if (info->format == HbGPU_Image_Format_Invalid || info->format >= HbGPU_Image_Format_FormatCount) {
+		return HbFalse;
+	}
 	info->width = HbMaxU32(info->width, 1);
 	info->height = HbMaxU32(info->height, 1);
 	info->depthOrLayers = HbMaxU32(info->depthOrLayers, 1);
@@ -95,17 +98,17 @@ uint32_t HbGPU_Image_Copy_ElementSize(HbGPU_Image_Format format, HbBool stencil)
 		[HbGPU_Image_Format_8_8_8_8_BGRA_sRGB] = 4,
 		[HbGPU_Image_Format_10_10_10_2_RGBA_UNorm] = 4,
 		[HbGPU_Image_Format_10_10_10_2_RGBA_UInt] = 4,
-		[HbGPU_Image_Format_11_11_10_RGB_Float] = 4,
+		[HbGPU_Image_Format_11_11_10_RGB_UFloat] = 4,
 		[HbGPU_Image_Format_16_R_UNorm] = 2,
 		[HbGPU_Image_Format_16_R_UInt] = 2,
 		[HbGPU_Image_Format_16_R_SNorm] = 2,
 		[HbGPU_Image_Format_16_R_SInt] = 2,
-		[HbGPU_Image_Format_16_R_Float] = 2,
+		[HbGPU_Image_Format_16_R_SFloat] = 2,
 		[HbGPU_Image_Format_16_16_RG_UNorm] = 4,
 		[HbGPU_Image_Format_16_16_RG_UInt] = 4,
 		[HbGPU_Image_Format_16_16_RG_SNorm] = 4,
 		[HbGPU_Image_Format_16_16_RG_SInt] = 4,
-		[HbGPU_Image_Format_16_16_RG_Float] = 4,
+		[HbGPU_Image_Format_16_16_RG_SFloat] = 4,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_UNorm] = 8,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_UInt] = 8,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SNorm] = 8,
@@ -113,13 +116,13 @@ uint32_t HbGPU_Image_Copy_ElementSize(HbGPU_Image_Format format, HbBool stencil)
 		[HbGPU_Image_Format_16_16_16_16_RGBA_Float] = 8,
 		[HbGPU_Image_Format_32_R_UInt] = 4,
 		[HbGPU_Image_Format_32_R_SInt] = 4,
-		[HbGPU_Image_Format_32_R_Float] = 4,
+		[HbGPU_Image_Format_32_R_SFloat] = 4,
 		[HbGPU_Image_Format_32_32_RG_UInt] = 8,
 		[HbGPU_Image_Format_32_32_RG_SInt] = 8,
-		[HbGPU_Image_Format_32_32_RG_Float] = 8,
+		[HbGPU_Image_Format_32_32_RG_SFloat] = 8,
 		[HbGPU_Image_Format_32_32_32_32_RGBA_UInt] = 16,
 		[HbGPU_Image_Format_32_32_32_32_RGBA_SInt] = 16,
-		[HbGPU_Image_Format_32_32_32_32_RGBA_Float] = 16,
+		[HbGPU_Image_Format_32_32_32_32_RGBA_SFloat] = 16,
 		[HbGPU_Image_Format_S3TC_A1_UNorm] = 8,
 		[HbGPU_Image_Format_S3TC_A1_sRGB] = 8,
 		[HbGPU_Image_Format_S3TC_A4_UNorm] = 16,
@@ -130,6 +133,10 @@ uint32_t HbGPU_Image_Copy_ElementSize(HbGPU_Image_Format format, HbBool stencil)
 		[HbGPU_Image_Format_3Dc_R_SNorm] = 8,
 		[HbGPU_Image_Format_3Dc_RG_UNorm] = 16,
 		[HbGPU_Image_Format_3Dc_RG_SNorm] = 16,
+		[HbGPU_Image_Format_BPTC_UFloat] = 16,
+		[HbGPU_Image_Format_BPTC_SFloat] = 16,
+		[HbGPU_Image_Format_BPTC_UNorm] = 16,
+		[HbGPU_Image_Format_BPTC_sRGB] = 16,
 		[HbGPU_Image_Format_D32] = 4,
 		[HbGPU_Image_Format_D32_S8] = 4,
 	};
