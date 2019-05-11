@@ -5,7 +5,7 @@ HbBool HbFile_Mapping_InitRead(HbFile_Mapping * mapping, HbTextU8 const * path, 
 	#if HbPlatform_OS_Windows
 	size_t pathU16Size = HbTextU8_LengthU16Elems(path) + 1;
 	HbTextU16 * pathU16 = HbStackAlloc(pathU16Size * sizeof(HbTextU16));
-	HbTextU16_FromU8(pathU16, pathU16Size, path);
+	HbTextU16_FromU8(pathU16, pathU16Size, path, HbFalse);
 	mapping->windowsFileHandle = CreateFileW(pathU16, GENERIC_READ, FILE_SHARE_READ, HbNull, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, HbNull);
 	if (mapping->windowsFileHandle == INVALID_HANDLE_VALUE) {
 		return HbFalse;

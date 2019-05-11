@@ -91,6 +91,15 @@ typedef uint8_t HbBool;
 #define HbStackAlloc alloca
 #endif
 
+// Byte swapping.
+#if HbPlatform_Compiler_MSVC
+#define HbByteSwapU16 _byteswap_ushort
+#define HbByteSwapU32 _byteswap_ulong
+#define HbByteSwapU64 _byteswap_uint64
+#else
+#error No HbByteSwap for the current compiler.
+#endif
+
 // Common operations on numbers. For run-time floats, use fmin/fmax, not HbMinI/HbMaxI.
 // Force-inline versions to evaluate each argument only once.
 

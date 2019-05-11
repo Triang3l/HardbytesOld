@@ -120,13 +120,13 @@ inline size_t HbTextU8_LengthU16Elems(HbTextU8 const * text) {
 uint32_t HbTextU8_WriteValidChar(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU32 character);
 
 // Allocate HbTextU16_LengthU8Elems elements for this.
-size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU16 const * source);
+size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU16 const * source, HbBool nonNativeEndian);
 
 /*********
  * UTF-16
  *********/
 
-HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor); // 0 when no characters left. Advances the cursor.
+HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, HbBool nonNativeEndian); // 0 when no characters left. Advances the cursor.
 
 // No validation - returns real data size (for appending)!
 inline size_t HbTextU16_LengthElems(HbTextU16 const * text) {
@@ -134,17 +134,17 @@ inline size_t HbTextU16_LengthElems(HbTextU16 const * text) {
 	while (*(text++) != '\0') {}
 	return (size_t) (text - start);
 }
-inline size_t HbTextU16_LengthChars(HbTextU16 const * text) {
+inline size_t HbTextU16_LengthChars(HbTextU16 const * text, HbBool nonNativeEndian) {
 	size_t length = 0;
-	while (HbTextU16_NextChar(&text) != '\0') {
+	while (HbTextU16_NextChar(&text, nonNativeEndian) != '\0') {
 		++length;
 	}
 	return length;
 };
-inline size_t HbTextU16_LengthU8Elems(HbTextU16 const * text) {
+inline size_t HbTextU16_LengthU8Elems(HbTextU16 const * text, HbBool nonNativeEndian) {
 	size_t length = 0;
 	HbTextU32 character;
-	while ((character = HbTextU16_NextChar(&text)) != '\0') {
+	while ((character = HbTextU16_NextChar(&text, nonNativeEndian)) != '\0') {
 		length += HbTextU8_ValidCharElemCount(character);
 	}
 	return length;
@@ -152,12 +152,12 @@ inline size_t HbTextU16_LengthU8Elems(HbTextU16 const * text) {
 
 // Places a character in the buffer if possible, returning the number of elements actually written.
 // Does not null-terminate (and the buffer size doesn't include the terminator)!
-uint32_t HbTextU16_WriteValidChar(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU32 character);
+uint32_t HbTextU16_WriteValidChar(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU32 character, HbBool nonNativeEndian);
 
 // This actually validates characters - size in elements may be changed if there are invalid characters!
-size_t HbTextU16_Copy(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU16 const * source);
+size_t HbTextU16_Copy(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU16 const * source, HbBool nonNativeEndian);
 
 // Allocate HbTextU8_LengthU16Elems elements for this.
-size_t HbTextU16_FromU8(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU8 const * source);
+size_t HbTextU16_FromU8(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU8 const * source, HbBool nonNativeEndian);
 
 #endif

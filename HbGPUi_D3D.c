@@ -14,7 +14,7 @@ void HbGPUi_D3D_SetObjectName(void * object, HbGPUi_D3D_ObjectNameSetter setter,
 	}
 	size_t nameU16Size = HbTextU8_LengthU16Elems(name) + 1;
 	HbTextU16 * nameU16 = HbStackAlloc(nameU16Size * sizeof(HbTextU16));
-	HbTextU16_FromU8(nameU16, nameU16Size, name);
+	HbTextU16_FromU8(nameU16, nameU16Size, name, HbFalse);
 	setter(object, (WCHAR const *) nameU16);
 }
 
@@ -30,10 +30,10 @@ void HbGPUi_D3D_SetSubObjectName(void * object, HbGPUi_D3D_ObjectNameSetter sett
 	size_t parentNameU16LengthElems = HbTextU8_LengthU16Elems(parentName);
 	size_t fullNameU16Size = parentNameU16LengthElems + 1 + HbTextU8_LengthU16Elems(name) + 1;
 	HbTextU16 * fullNameU16 = HbStackAlloc(fullNameU16Size * sizeof(HbTextU16));
-	HbTextU16_FromU8(fullNameU16, fullNameU16Size, parentName);
+	HbTextU16_FromU8(fullNameU16, fullNameU16Size, parentName, HbFalse);
 	fullNameU16[parentNameU16LengthElems] = '.';
 	HbTextU16_FromU8(fullNameU16 + parentNameU16LengthElems + 1,
-			fullNameU16Size - parentNameU16LengthElems - 1, name);
+			fullNameU16Size - parentNameU16LengthElems - 1, name, HbFalse);
 	setter(object, (WCHAR const *) fullNameU16);
 }
 
@@ -43,7 +43,7 @@ void HbGPUi_D3D_SetDXGIObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSette
 	}
 	size_t nameU16LengthElems = HbTextU8_LengthU16Elems(name) + 1;
 	HbTextU16 * nameU16 = HbStackAlloc((nameU16LengthElems + 1) * sizeof(HbTextU16));
-	HbTextU16_FromU8(nameU16, nameU16LengthElems + 1, name);
+	HbTextU16_FromU8(nameU16, nameU16LengthElems + 1, name, HbFalse);
 	setter(object, &WKPDID_D3DDebugObjectNameW, (UINT) (nameU16LengthElems * sizeof(HbTextU16)), nameU16);
 }
 
@@ -59,10 +59,10 @@ void HbGPUi_D3D_SetDXGISubObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSe
 	size_t parentNameU16LengthElems = HbTextU8_LengthU16Elems(parentName);
 	size_t fullNameU16LengthElems = parentNameU16LengthElems + 1 + HbTextU8_LengthU16Elems(name) + 1;
 	HbTextU16 * fullNameU16 = HbStackAlloc((fullNameU16LengthElems + 1) * sizeof(HbTextU16));
-	HbTextU16_FromU8(fullNameU16, fullNameU16LengthElems + 1, parentName);
+	HbTextU16_FromU8(fullNameU16, fullNameU16LengthElems + 1, parentName, HbFalse);
 	fullNameU16[parentNameU16LengthElems] = '.';
 	HbTextU16_FromU8(fullNameU16 + parentNameU16LengthElems + 1,
-			(fullNameU16LengthElems + 1) - parentNameU16LengthElems - 1, name);
+			(fullNameU16LengthElems + 1) - parentNameU16LengthElems - 1, name, HbFalse);
 	setter(object, &WKPDID_D3DDebugObjectNameW, (UINT) (fullNameU16LengthElems * sizeof(HbTextU16)), fullNameU16);
 }
 
