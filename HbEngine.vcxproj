@@ -164,6 +164,7 @@
     <ClInclude Include="HbFile.h" />
     <ClInclude Include="HbFile_DDS.h" />
     <ClInclude Include="HbFile_IQM.h" />
+    <ClInclude Include="HbFile_KV.h" />
     <ClInclude Include="HbGPU.h" />
     <ClInclude Include="HbGPUi_D3D.h" />
     <ClInclude Include="HbHash.h" />
@@ -182,6 +183,7 @@
     <ClCompile Include="HbCore.c" />
     <ClCompile Include="HbFile.c" />
     <ClCompile Include="HbFile_DDS.c" />
+    <ClCompile Include="HbFile_KV.c" />
     <ClCompile Include="HbGPU.c" />
     <ClCompile Include="HbGPUi_D3D.c" />
     <ClCompile Include="HbGPUi_D3D_CmdList.c" />

@@ -1,6 +1,30 @@
 #include "HbText.h"
 #include <stdio.h>
 
+uint32_t HbText_ClassifyUnicodeStream(void const * data, size_t size, HbBool * isU16, HbBool * u16NonNativeEndian) {
+	if (size >= 2) {
+		if (((size_t) data & 1) == 0) {
+			uint16_t potentialBOM = *((uint16_t const *) data);
+			if (potentialBOM == HbTextU16_BOM_Native || potentialBOM == HbTextU16_BOM_NonNative) {
+				*isU16 = HbTrue;
+				*u16NonNativeEndian = potentialBOM == HbTextU16_BOM_NonNative;
+				return sizeof(HbTextU16);
+			}
+		}
+		if (size >= 3) {
+			uint8_t const * potentialBOM = (uint8_t const *) data;
+			if (potentialBOM[0] == HbTextU8_BOM_0 && potentialBOM[1] == HbTextU8_BOM_1 && potentialBOM[2] == HbTextU8_BOM_2) {
+				*isU16 = HbFalse;
+				*u16NonNativeEndian = HbFalse;
+				return 3;
+			}
+		}
+	}
+	*isU16 = HbFalse;
+	*u16NonNativeEndian = HbFalse;
+	return 0;
+}
+
 /********
  * ASCII
  ********/
@@ -8,7 +32,7 @@
 size_t HbTextA_Copy(char * target, size_t targetBufferSize, char const * source) {
 	char * originalTarget = target;
 	if (targetBufferSize != 0) {
-		while (targetBufferSize != 0 && *source != '\0') {
+		while (--targetBufferSize != 0 && *source != '\0') {
 			*(target++) = *(source++);
 		}
 		*target = '\0';

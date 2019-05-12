@@ -35,10 +35,16 @@ typedef uint32_t HbTextU32; // Whole code point.
 #define HbText_Decimal_MaxLengthS64 20 // strlen("-9223372036854775808")
 #define HbText_Decimal_MaxLengthSize (sizeof(size_t) > 4 ? HbText_Decimal_MaxLengthU64 : HbText_Decimal_MaxLengthU32)
 
+// Returns the number of BOM bytes to skip. For UTF-16 to be detectable, data must be 2-aligned.
+uint32_t HbText_ClassifyUnicodeStream(void const * data, size_t size, HbBool * isU16, HbBool * u16NonNativeEndian);
+
 /********
  * ASCII
  ********/
 
+HbForceInline HbBool HbTextA_IsSpace(char character) {
+	return character == ' ' || (character >= '\t' && character <= '\r');
+}
 HbForceInline char HbTextA_CharToLower(char character) {
 	if (character >= 'A' && character <= 'Z') {
 		character += 'a' - 'A';
@@ -82,10 +88,30 @@ HbForceInline HbTextU32 HbTextU32_ValidateChar(HbTextU32 character) {
 	return HbTextU32_IsCharValid(character) ? character : HbText_InvalidSubstitute;
 }
 
+HbForceInline HbBool HbTextU32_IsASCIISpace(HbTextU32 character) {
+	return character == ' ' || (character >= '\t' && character <= '\r');
+}
+HbForceInline HbTextU32 HbTextU32_ASCIICharToLower(HbTextU32 character) {
+	if (character >= 'A' && character <= 'Z') {
+		character += 'a' - 'A';
+	}
+	return character;
+}
+HbForceInline HbTextU32 HbTextA_ASCIICharToUpper(HbTextU32 character) {
+	if (character >= 'a' && character <= 'z') {
+		character -= 'a' - 'A';
+	}
+	return character;
+}
+
 /*************************************************************************
  * UTF-8 - assuming no incomplete characters
  * (invalid characters are treated as sequences of substitute characters)
  *************************************************************************/
+
+#define HbTextU8_BOM_0 0xEF
+#define HbTextU8_BOM_1 0xBB
+#define HbTextU8_BOM_2 0xBF
 
 inline uint32_t HbTextU8_ValidCharElemCount(HbTextU32 character) {
 	return (character > 0) + (character > 0x7F) + (character > 0x7FF) + (character > 0xFFFF);
@@ -125,6 +151,9 @@ size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU
 /*********
  * UTF-16
  *********/
+
+#define HbTextU16_BOM_Native 0xFEFF
+#define HbTextU16_BOM_NonNative 0xFFFE
 
 HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, HbBool nonNativeEndian); // 0 when no characters left. Advances the cursor.
 
