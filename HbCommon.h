@@ -106,12 +106,15 @@ typedef uint8_t HbBool;
 #define HbMinI(a, b) ((a) < (b) ? (a) : (b))
 HbForceInline int32_t HbMinI32(int32_t a, int32_t b) { return HbMinI(a, b); }
 HbForceInline uint32_t HbMinU32(uint32_t a, uint32_t b) { return HbMinI(a, b); }
+HbForceInline size_t HbMinSize(size_t a, size_t b) { return HbMinI(a, b); }
 #define HbMaxI(a, b) ((a) > (b) ? (a) : (b))
 HbForceInline int32_t HbMaxI32(int32_t a, int32_t b) { return HbMaxI(a, b); }
 HbForceInline uint32_t HbMaxU32(uint32_t a, uint32_t b) { return HbMaxI(a, b); }
+HbForceInline size_t HbMaxSize(size_t a, size_t b) { return HbMaxI(a, b); }
 #define HbClampI(value, low, high) (((value) > (high)) ? (high) : (((value) < (low)) ? (low) : (value)))
 HbForceInline int32_t HbClampI32(int32_t value, int32_t low, int32_t high) { return HbClampI(value, low, high); }
 HbForceInline uint32_t HbClampU32(uint32_t value, uint32_t low, uint32_t high) { return HbClampI(value, low, high); }
+HbForceInline size_t HbClampSize(size_t value, size_t low, size_t high) { return HbClampI(value, low, high); }
 #define HbClampF(value, low, high) fminf(high, fmaxf(low, value))
 
 #define HbAlign(value, alignment) (((value) + ((alignment) - 1u)) & ~((alignment) - 1u))

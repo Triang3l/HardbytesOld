@@ -4,16 +4,16 @@
 void HbFile_KV_Read_Init(HbFile_KV_Read_Context * context, void const * data, size_t size, HbBool useEscapeSequences) {
 	uint32_t bomSize = HbText_ClassifyUnicodeStream(data, size, &context->isU16, &context->u16NonNativeEndian);
 	context->data.u8 = (uint8_t const *) data + bomSize;
-	context->size = size - bomSize;
+	context->size = HbMinSize(size - bomSize, SIZE_MAX >> 1); // 1 bit used for the quoted flag.
 	if (context->isU16) {
 		context->size &= ~(sizeof(HbTextU16) - 1);
 	}
 	context->useEscapeSequences = useEscapeSequences;
 	context->sectionDepth = 0;
-	context->keyString.position = SIZE_MAX;
 	context->keyString.quoted = HbFalse;
-	context->valueString.position = SIZE_MAX;
+	context->keyString.position = context->size;
 	context->valueString.quoted = HbFalse;
+	context->valueString.position = context->size;
 	context->readResumePosition = 0;
 }
 
@@ -173,10 +173,10 @@ static void HbFile_KV_Read_SkipSeparators(HbFile_KV_Read_Context * context) {
 
 HbFile_KV_Read_TokenType HbFile_KV_Read_Parse(HbFile_KV_Read_Context * context) {
 	// Clear the token state.
-	context->keyString.position = SIZE_MAX;
 	context->keyString.quoted = HbFalse;
-	context->valueString.position = SIZE_MAX;
+	context->keyString.position = context->size;
 	context->valueString.quoted = HbFalse;
+	context->valueString.position = context->size;
 
 	// Try to read the key or }.
 	HbFile_KV_Read_SkipSeparators(context);

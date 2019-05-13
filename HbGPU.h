@@ -349,7 +349,7 @@ typedef struct HbGPU_Image_Slice {
 	uint32_t mip : HbGPU_Image_MipCountBits;
 	uint32_t cubeSide : 3;
 	uint32_t layer : HbGPU_Image_MaxLayersLog2;
-	HbBool stencil : 1;
+	uint32_t stencil : 1;
 } HbGPU_Image_Slice;
 
 // Helper structure to be put in other structures if needed (like render target storages).
@@ -438,7 +438,7 @@ typedef struct HbGPU_Sampler_Info {
 	uint32_t mipMostDetailed : HbGPU_Image_MipCountBits;
 	uint32_t mipLeastDetailed : HbGPU_Image_MipCountBits;
 	uint32_t mipBias : HbGPU_Image_MipCountBits;
-	HbBool isComparison : 1;
+	uint32_t isComparison : 1;
 	uint32_t comparison : 3;
 } HbGPU_Sampler_Info;
 

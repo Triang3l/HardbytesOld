@@ -29,7 +29,7 @@ extern char const HbPack_HeaderID[12];
 typedef struct HbAligned(16) HbPack_Header {
 	char id[12]; // HbPack_HeaderID.
 	uint32_t itemCount : 31;
-	HbBool hashMapPresent : 1; // The index mask is calculated as HbHash_Map_GetIndexMask32(itemCount).
+	uint32_t hashMapPresent : 1; // The index mask is calculated as HbHash_Map_GetIndexMask32(itemCount).
 } HbPack_Header;
 
 #define HbPack_InvalidItemIndex UINT32_MAX

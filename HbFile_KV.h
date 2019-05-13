@@ -5,8 +5,8 @@
 // Source Engine text key/value pairs, in UTF-8 or UTF-16 format (determined by the BOM).
 
 typedef struct HbFile_KV_Read_String {
-	size_t position;
-	HbBool quoted;
+	size_t quoted : 1; // Use 2x less space than with a regular HbBool.
+	size_t position : sizeof(size_t) * 8 - 1;
 } HbFile_KV_Read_String;
 
 typedef struct HbFile_KV_Read_Context {
