@@ -113,6 +113,8 @@ HbForceInline HbTextU32 HbTextA_ASCIICharToUpper(HbTextU32 character) {
 #define HbTextU8_BOM_1 0xBB
 #define HbTextU8_BOM_2 0xBF
 
+#define HbTextU8_MaxCharElems 4
+
 inline uint32_t HbTextU8_ValidCharElemCount(HbTextU32 character) {
 	return (character > 0) + (character > 0x7F) + (character > 0x7FF) + (character > 0xFFFF);
 }
@@ -124,10 +126,13 @@ inline uint32_t HbTextU8_CharElemCount(HbTextU32 character) {
 #define HbTextU8_Compare HbTextA_Compare
 #define HbTextU8_CompareCaselessEnglish HbTextA_CompareCaseless
 
-HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor); // 0 when no characters left. Advances the cursor.
+// 0 when no characters left. Advances the cursor.
+// maxElems is for non-null-terminated buffers, to prevent buffer overflow when the last character is truncated
+// (size_t so it can be calculated from size_t easily). It should be HbTextU8_MaxCharElems for null-terminated strings.
+HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor, size_t maxElems);
 inline size_t HbTextU8_LengthChars(HbTextU8 const * text) {
 	size_t length = 0;
-	while (HbTextU8_NextChar(&text) != '\0') {
+	while (HbTextU8_NextChar(&text, HbTextU8_MaxCharElems) != '\0') {
 		++length;
 	}
 	return length;
@@ -135,7 +140,7 @@ inline size_t HbTextU8_LengthChars(HbTextU8 const * text) {
 inline size_t HbTextU8_LengthU16Elems(HbTextU8 const * text) {
 	size_t length = 0;
 	HbTextU32 character;
-	while ((character = HbTextU8_NextChar(&text)) != '\0') {
+	while ((character = HbTextU8_NextChar(&text, HbTextU8_MaxCharElems)) != '\0') {
 		length += 1 + ((character >> 16) != 0);
 	}
 	return length;

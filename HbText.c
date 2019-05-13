@@ -73,7 +73,10 @@ size_t HbTextA_Format(char * target, size_t targetBufferSize, char const * forma
  * UTF-8
  ********/
 
-HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor) {
+HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor, size_t maxElems) {
+	if (maxElems == 0) {
+		return '\0';
+	}
 	// Force unsigned (char signedness is target-dependent).
 	uint8_t const * text = (uint8_t const *) *cursor, first = text[0];
 	if (first == '\0') {
@@ -85,12 +88,18 @@ HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor) {
 	}
 	// Doing && sequences in order is safe due to early exit.
 	if ((first >> 5) == 6) {
+		if (maxElems < 2) {
+			return '\0';
+		}
 		if ((text[1] >> 6) == 2) {
 			*cursor += 2;
 			return ((HbTextU32) (first & 31) << 6) | (text[1] & 63);
 		}
 	}
 	if ((first >> 4) == 14) {
+		if (maxElems < 3) {
+			return '\0';
+		}
 		if ((text[1] >> 6) == 2 && (text[2] >> 6) == 2) {
 			*cursor += 3;
 			return HbTextU32_ValidateChar(
@@ -98,6 +107,9 @@ HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor) {
 		}
 	}
 	if ((first >> 3) == 30) {
+		if (maxElems < 4) {
+			return '\0';
+		}
 		if ((text[1] >> 6) == 2 && (text[2] >> 6) == 2 && (text[3] >> 6) == 2) {
 			*cursor += 4;
 			return HbTextU32_ValidateChar(
@@ -231,7 +243,7 @@ size_t HbTextU16_FromU8(HbTextU16 * target, size_t targetBufferSizeElems, HbText
 	if (targetBufferSizeElems != 0) {
 		--targetBufferSizeElems;
 		HbTextU32 character;
-		while (targetBufferSizeElems != 0 && (character = HbTextU8_NextChar(&source)) != '\0') {
+		while (targetBufferSizeElems != 0 && (character = HbTextU8_NextChar(&source, HbTextU8_MaxCharElems)) != '\0') {
 			uint32_t written = HbTextU16_WriteValidChar(target, targetBufferSizeElems, character, nonNativeEndian);
 			if (written == 0) {
 				break;

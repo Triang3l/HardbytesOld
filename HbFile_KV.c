@@ -41,11 +41,12 @@ static HbTextU32 HbFile_KV_Read_GetCharacter(HbFile_KV_Read_Context const * cont
 			*bytesToNext = (uint32_t) ((cursor - cursorStart) * sizeof(HbTextU16));
 		}
 	} else {
+		size_t remaining = context->size - positionBytes;
 		HbTextU8 const * cursorStart = &context->data.u8[positionBytes], * cursor = cursorStart;
-		character = HbTextU8_NextChar(&cursor);
+		character = HbTextU8_NextChar(&cursor, remaining);
 		if (character == '\r') {
 			HbTextU8 const * cursorLF = cursor;
-			if (HbTextU8_NextChar(&cursorLF) == '\n') {
+			if (HbTextU8_NextChar(&cursorLF, remaining - (size_t) (cursor - cursorStart)) == '\n') {
 				character = '\n';
 				cursor = cursorLF;
 			}
