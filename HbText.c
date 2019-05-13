@@ -82,42 +82,41 @@ HbTextU32 HbTextU8_NextChar(HbTextU8 const * * cursor, size_t maxElems) {
 	if (first == '\0') {
 		return '\0';
 	}
+	++(*cursor);
 	if ((first >> 7) == 0) {
-		++(*cursor);
 		return first;
 	}
 	// Doing && sequences in order is safe due to early exit.
 	if ((first >> 5) == 6) {
 		if (maxElems < 2) {
-			return '\0';
+			return HbText_InvalidSubstitute;
 		}
 		if ((text[1] >> 6) == 2) {
-			*cursor += 2;
+			++(*cursor);
 			return ((HbTextU32) (first & 31) << 6) | (text[1] & 63);
 		}
 	}
 	if ((first >> 4) == 14) {
 		if (maxElems < 3) {
-			return '\0';
+			return HbText_InvalidSubstitute;
 		}
 		if ((text[1] >> 6) == 2 && (text[2] >> 6) == 2) {
-			*cursor += 3;
+			*cursor += 2;
 			return HbTextU32_ValidateChar(
 					((HbTextU32) (first & 15) << 12) | ((HbTextU32) (text[1] & 63) << 6) | (text[2] & 63));
 		}
 	}
 	if ((first >> 3) == 30) {
 		if (maxElems < 4) {
-			return '\0';
+			return HbText_InvalidSubstitute;
 		}
 		if ((text[1] >> 6) == 2 && (text[2] >> 6) == 2 && (text[3] >> 6) == 2) {
-			*cursor += 4;
+			*cursor += 3;
 			return HbTextU32_ValidateChar(
 					((HbTextU32) (first & 7) << 18) | ((HbTextU32) (text[1] & 63) << 12) |
 							((HbTextU32) (text[2] & 63) << 6) | (text[3] & 63));
 		}
 	}
-	++(*cursor);
 	return HbText_InvalidSubstitute;
 }
 
@@ -155,7 +154,7 @@ size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU
 	if (targetBufferSizeElems != 0) {
 		--targetBufferSizeElems;
 		HbTextU32 character;
-		while (targetBufferSizeElems != 0 && (character = HbTextU16_NextChar(&source, nonNativeEndian)) != '\0') {
+		while (targetBufferSizeElems != 0 && (character = HbTextU16_NextChar(&source, HbTextU16_MaxCharElems, nonNativeEndian)) != '\0') {
 			uint32_t written = HbTextU8_WriteValidChar(target, targetBufferSizeElems, character);
 			if (written == 0) {
 				break;
@@ -172,7 +171,10 @@ size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU
  * UTF-16
  *********/
 
-HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, HbBool nonNativeEndian) {
+HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, size_t maxElems, HbBool nonNativeEndian) {
+	if (maxElems == 0) {
+		return '\0';
+	}
 	HbTextU16 first = (*cursor)[0];
 	if (first == '\0') {
 		return '\0';
@@ -183,6 +185,9 @@ HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, HbBool nonNativeEndian)
 	}
 	HbTextU32 character;
 	if ((first >> 10) == (0xD800 >> 10)) {
+		if (maxElems < 2) {
+			return HbText_InvalidSubstitute;
+		}
 		HbTextU16 second = (*cursor)[0];
 		if ((second >> 10) == (0xDC00 >> 10)) {
 			return HbText_InvalidSubstitute;
@@ -225,7 +230,7 @@ size_t HbTextU16_Copy(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU1
 	if (targetBufferSizeElems != 0) {
 		--targetBufferSizeElems;
 		HbTextU32 character;
-		while (targetBufferSizeElems != 0 && (character = HbTextU16_NextChar(&source, nonNativeEndian)) != '\0') {
+		while (targetBufferSizeElems != 0 && (character = HbTextU16_NextChar(&source, HbTextU16_MaxCharElems, nonNativeEndian)) != '\0') {
 			uint32_t written = HbTextU16_WriteValidChar(target, targetBufferSizeElems, character, nonNativeEndian);
 			if (written == 0) {
 				break;

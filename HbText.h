@@ -160,7 +160,9 @@ size_t HbTextU8_FromU16(HbTextU8 * target, size_t targetBufferSizeElems, HbTextU
 #define HbTextU16_BOM_Native 0xFEFF
 #define HbTextU16_BOM_NonNative 0xFFFE
 
-HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, HbBool nonNativeEndian); // 0 when no characters left. Advances the cursor.
+#define HbTextU16_MaxCharElems 2
+
+HbTextU32 HbTextU16_NextChar(HbTextU16 const * * cursor, size_t maxElems, HbBool nonNativeEndian); // 0 when no characters left. Advances the cursor.
 
 // No validation - returns real data size (for appending)!
 inline size_t HbTextU16_LengthElems(HbTextU16 const * text) {
@@ -170,7 +172,7 @@ inline size_t HbTextU16_LengthElems(HbTextU16 const * text) {
 }
 inline size_t HbTextU16_LengthChars(HbTextU16 const * text, HbBool nonNativeEndian) {
 	size_t length = 0;
-	while (HbTextU16_NextChar(&text, nonNativeEndian) != '\0') {
+	while (HbTextU16_NextChar(&text, HbTextU16_MaxCharElems, nonNativeEndian) != '\0') {
 		++length;
 	}
 	return length;
@@ -178,7 +180,7 @@ inline size_t HbTextU16_LengthChars(HbTextU16 const * text, HbBool nonNativeEndi
 inline size_t HbTextU16_LengthU8Elems(HbTextU16 const * text, HbBool nonNativeEndian) {
 	size_t length = 0;
 	HbTextU32 character;
-	while ((character = HbTextU16_NextChar(&text, nonNativeEndian)) != '\0') {
+	while ((character = HbTextU16_NextChar(&text, HbTextU16_MaxCharElems, nonNativeEndian)) != '\0') {
 		length += HbTextU8_ValidCharElemCount(character);
 	}
 	return length;

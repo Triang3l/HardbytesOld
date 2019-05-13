@@ -28,11 +28,12 @@ static HbTextU32 HbFile_KV_Read_GetCharacter(HbFile_KV_Read_Context const * cont
 	if (context->isU16) {
 		HbFeedback_Assert((positionBytes & (sizeof(HbTextU16) - 1)) == 0, "HbFile_KV_Read_GetCharacter",
 				"Position must be UTF-16 element-aligned.");
+		size_t remaining = (context->size - positionBytes) / sizeof(HbTextU16);
 		HbTextU16 const * cursorStart = &context->data.u16[positionBytes / sizeof(HbTextU16)], * cursor = cursorStart;
-		character = HbTextU16_NextChar(&cursor, context->u16NonNativeEndian);
+		character = HbTextU16_NextChar(&cursor, remaining, context->u16NonNativeEndian);
 		if (character == '\r') {
 			HbTextU16 const * cursorLF = cursor;
-			if (HbTextU16_NextChar(&cursorLF, context->u16NonNativeEndian) == '\n') {
+			if (HbTextU16_NextChar(&cursorLF, remaining - (size_t) (cursor - cursorStart), context->u16NonNativeEndian) == '\n') {
 				character = '\n';
 				cursor = cursorLF;
 			}
