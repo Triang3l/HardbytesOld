@@ -81,6 +81,9 @@
     <ClInclude Include="HbFile_KV.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="HbGFX.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="HbPlatform_Windows.c">
@@ -140,6 +143,9 @@
     <ClCompile Include="HbFile_KV.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HbGFX.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="HbShader\HbShader_GeoGen_Icosphere.hlsli">
@@ -154,6 +160,12 @@
       <Filter>Source Files\HbShader</Filter>
     </FxCompile>
     <FxCompile Include="HbShader\HbShader_FullScreenTexCoordVS.hlsl">
+      <Filter>Source Files\HbShader</Filter>
+    </FxCompile>
+    <FxCompile Include="HbShader\HbShader_Tile_GetDepthBoundsCS.hlsl">
+      <Filter>Source Files\HbShader</Filter>
+    </FxCompile>
+    <FxCompile Include="HbShader\HbShader_Tile_GetDepthBoundsMSCS.hlsl">
       <Filter>Source Files\HbShader</Filter>
     </FxCompile>
   </ItemGroup>

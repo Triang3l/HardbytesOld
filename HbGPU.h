@@ -583,8 +583,8 @@ typedef enum HbGPU_Binding_Type {
 } HbGPU_Binding_Type;
 
 typedef struct HbGPU_Binding {
-	HbGPU_Binding_Type type;
 	HbGPU_ShaderStageBits stages; // On Direct3D, filtering works the "one stage or all stages" way.
+	HbGPU_Binding_Type type;
 	union {
 		struct {
 			HbGPU_Binding_HandleRange const * ranges;

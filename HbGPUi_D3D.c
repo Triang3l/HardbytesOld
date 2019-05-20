@@ -705,7 +705,7 @@ void HbGPU_HandleStore_SetTexelResourceBuffer(HbGPU_HandleStore * store, uint32_
 		.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
 		.Buffer.FirstElement = offsetInTexels,
 		.Buffer.NumElements = texelCount,
-		.Buffer.StructureByteStride = HbGPU_Image_Copy_ElementSize(format, HbFalse),
+		.Buffer.StructureByteStride = 0,
 		.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE,
 	};
 	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, buffer->d3dResource, &srvDesc,
@@ -734,7 +734,7 @@ void HbGPU_HandleStore_SetEditBuffer(HbGPU_HandleStore * store, uint32_t index,
 		.ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
 		.Buffer.FirstElement = offsetInTexels,
 		.Buffer.NumElements = texelCount,
-		.Buffer.StructureByteStride = HbGPU_Image_Copy_ElementSize(format, HbFalse),
+		.Buffer.StructureByteStride = 0,
 		.Buffer.CounterOffsetInBytes = 0,
 		.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE,
 	};

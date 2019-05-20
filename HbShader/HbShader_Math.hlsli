@@ -20,7 +20,7 @@ float3 HbMath_Quat_ApplyConjugate(float4 q, float3 v) {
 	return v + q.x * t + cross(-q.yzw, t);
 }
 
-// perspective = [cot(vFOV * 0.5) * (height / width) | cot(vFOV * 0.5) | far / (far - near) | -near * far / (far - near)]
+// perspective = [cot(vFOV * 0.5) * (height / width) | cot(vFOV * 0.5) | z1 / (z1 - z0) | -z0 * z1 / (z1 - z0)]
 float4 HbMath_Project_Perspective(float4 perspective, float3 position) {
 	float4 projected = float4(perspective.xyz * position, position.z);
 	projected.z += perspective.w;
