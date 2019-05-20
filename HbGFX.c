@@ -1,3 +1,4 @@
+#include "HbFeedback.h"
 #include "HbGFX.h"
 #include "HbShader.h"
 
@@ -74,6 +75,7 @@ HbBool HbGFX_Tile_Init(HbGPU_Device * gpuDevice) {
 	#else
 	#error No tile depth bounds shaders for the target GPU implementation.
 	#endif
+	HbFeedback_StaticAssert(HbGFX_Tile_TileSize <= 32, "Tiles must be 32x32 at most, as one compute group is launched for each tile.");
 	uint32_t const groupSize[3] = { HbGFX_Tile_TileSize, HbGFX_Tile_TileSize, 1 };
 	if (!HbGPU_ComputeConfig_Init(&HbGFX_Tile_GetDepthBounds_ConfigSS, "HbGFX_Tile_GetDepthBounds_ConfigSS",
 			gpuDevice, shaderSS, groupSize, &HbGFX_Tile_GetDepthBounds_BindingLayout)) {
