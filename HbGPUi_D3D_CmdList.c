@@ -249,11 +249,11 @@ void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const
 	}
 	D3D12_CLEAR_FLAGS depthStencilClearFlags = (D3D12_CLEAR_FLAGS) 0;
 	if (passInfo->hasDepthStencilRT) {
+		HbGPU_Image_SliceReference const * depthStencilRef = &passInfo->depthStencilRT.d3dImageRef;
 		switch (passInfo->depthActions.beginAction) {
 		case HbGPU_DrawPass_BeginAction_Discard:
-			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(
-					&passInfo->depthStencilRT.d3dImageRef.image->info, passInfo->depthStencilRT.d3dImageRef.slice);
-			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, passInfo->depthStencilRT.d3dImageRef.image->d3dResource, &discardRegion);
+			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&depthStencilRef->image->info, depthStencilRef->slice);
+			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, depthStencilRef->image->d3dResource, &discardRegion);
 			break;
 		case HbGPU_DrawPass_BeginAction_Clear:
 			depthStencilClearFlags |= D3D12_CLEAR_FLAG_DEPTH;
@@ -261,20 +261,22 @@ void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const
 		default:
 			break;
 		}
-		switch (passInfo->stencilActions.beginAction) {
-		case HbGPU_DrawPass_BeginAction_Discard:
-			{
-				HbGPU_Image_Slice stencilSlice = passInfo->depthStencilRT.d3dImageRef.slice;
-				stencilSlice.stencil = 1;
-				discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&passInfo->depthStencilRT.d3dImageRef.image->info, stencilSlice);
-				ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, passInfo->depthStencilRT.d3dImageRef.image->d3dResource, &discardRegion);
+		if (HbGPU_Image_Format_HasStencil(depthStencilRef->image->info.format)) {
+			switch (passInfo->stencilActions.beginAction) {
+			case HbGPU_DrawPass_BeginAction_Discard:
+				{
+					HbGPU_Image_Slice stencilSlice = depthStencilRef->slice;
+					stencilSlice.stencil = 1;
+					discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&depthStencilRef->image->info, stencilSlice);
+					ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, depthStencilRef->image->d3dResource, &discardRegion);
+				}
+				break;
+			case HbGPU_DrawPass_BeginAction_Clear:
+				depthStencilClearFlags |= D3D12_CLEAR_FLAG_DEPTH;
+				break;
+			default:
+				break;
 			}
-			break;
-		case HbGPU_DrawPass_BeginAction_Clear:
-			depthStencilClearFlags |= D3D12_CLEAR_FLAG_DEPTH;
-			break;
-		default:
-			break;
 		}
 		if (depthStencilClearFlags != 0) {
 			ID3D12GraphicsCommandList_ClearDepthStencilView(d3dCommandList, passInfo->depthStencilRT.d3dHandle, depthStencilClearFlags,
@@ -309,19 +311,18 @@ void HbGPU_CmdList_Draw_End(HbGPU_CmdList * cmdList) {
 		}
 	}
 	if (cmdList->d3dCurrentDrawPass.hasDepthStencilRT) {
+		HbGPU_Image_SliceReference const * depthStencilRef = &cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef;
 		if (cmdList->d3dCurrentDrawPass.depthActions.endAction == HbGPU_DrawPass_EndAction_Discard) {
-			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(
-					&cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef.image->info, cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef.slice);
-			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList,
-					cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef.image->d3dResource, &discardRegion);
+			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&depthStencilRef->image->info, depthStencilRef->slice);
+			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, depthStencilRef->image->d3dResource, &discardRegion);
 		}
-		if (cmdList->d3dCurrentDrawPass.stencilActions.endAction == HbGPU_DrawPass_EndAction_Discard) {
-			HbGPU_Image_Slice stencilSlice = cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef.slice;
-			stencilSlice.stencil = 1;
-			discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(
-					&cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef.image->info, stencilSlice);
-			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList,
-					cmdList->d3dCurrentDrawPass.depthStencilRT.d3dImageRef.image->d3dResource, &discardRegion);
+		if (HbGPU_Image_Format_HasStencil(depthStencilRef->image->info.format)) {
+			if (cmdList->d3dCurrentDrawPass.stencilActions.endAction == HbGPU_DrawPass_EndAction_Discard) {
+				HbGPU_Image_Slice stencilSlice = depthStencilRef->slice;
+				stencilSlice.stencil = 1;
+				discardRegion.FirstSubresource = HbGPUi_D3D_Image_Slice_ToSubresource(&depthStencilRef->image->info, stencilSlice);
+				ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, depthStencilRef->image->d3dResource, &discardRegion);
+			}
 		}
 	}
 	cmdList->d3dIsDrawing = HbFalse;

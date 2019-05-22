@@ -466,7 +466,7 @@ void HbGPU_SamplerStore_DestroySampler(HbGPU_SamplerStore * store, uint32_t inde
 typedef struct HbGPU_RTReference {
 	#if HbGPU_Implementation_D3D
 	D3D12_CPU_DESCRIPTOR_HANDLE d3dHandle;
-	HbGPU_Image_SliceReference d3dImageRef; // For discarding and resolving.
+	HbGPU_Image_SliceReference d3dImageRef; // For discarding, resolving and checking whether there is stencil.
 	#endif
 } HbGPU_RTReference;
 

@@ -1164,7 +1164,7 @@ HbBool HbGPU_RTStore_SetDepth(HbGPU_RTStore * store, uint32_t rtIndex,
 	if (readOnlyDepth) {
 		dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_DEPTH;
 	}
-	if (readOnlyStencil) {
+	if (readOnlyStencil && HbGPU_Image_Format_HasStencil(image->info.format)) {
 		dsvDesc.Flags |= D3D12_DSV_FLAG_READ_ONLY_STENCIL;
 	}
 	ID3D12Device * d3dDevice = store->device->d3dDevice;
