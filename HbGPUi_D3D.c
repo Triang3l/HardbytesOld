@@ -1195,7 +1195,7 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 		HbGPU_SwapChain_Target target, HbGPU_Image_Format format, uint32_t width, uint32_t height, HbBool tripleBuffered) {
 	chain->device = device;
 	uint32_t bufferCount = tripleBuffered ? 3 : 2;
-	bufferCount = tripleBuffered ? 3 : 2;
+	chain->bufferCount = bufferCount;
 	width = HbClampU32(width, 1, HbGPU_Image_MaxSize1D2D);
 	height = HbClampU32(height, 1, HbGPU_Image_MaxSize1D2D);
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {
