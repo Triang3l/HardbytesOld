@@ -20,7 +20,7 @@ typedef struct HbParalleli_Windows_Thread_NameInfo {
 } HbParalleli_Windows_Thread_NameInfo;
 #pragma pack(pop)
 
-static void HbParalleli_Windows_Thread_Entry(void * parametersPointer) {
+static unsigned int __stdcall HbParalleli_Windows_Thread_Entry(void * parametersPointer) {
 	HbParalleli_Windows_Thread_Parameters parameters =
 			*((HbParalleli_Windows_Thread_Parameters const *) parametersPointer);
 	free(parametersPointer);
@@ -36,6 +36,7 @@ static void HbParalleli_Windows_Thread_Entry(void * parametersPointer) {
 		} __except (EXCEPTION_EXECUTE_HANDLER) {}
 	}
 	parameters.entry(parameters.data);
+	return 0;
 }
 
 HbBool HbParallel_Thread_Start(HbParallel_Thread * thread, char const * name, HbParallel_Thread_Entry entry, void * data) {
@@ -50,8 +51,10 @@ HbBool HbParallel_Thread_Start(HbParallel_Thread * thread, char const * name, Hb
 	} else {
 		parameters->name[0] = '\0';
 	}
-	uintptr_t handle = _beginthread(HbParalleli_Windows_Thread_Entry, 0, parameters);
-	if (handle == -1L) {
+	// _beginthread is not safe because the handle is closed in the end, and it causes a race condition between the thread being shut down and
+	// the thread doing WaitForSingleObject on it. _beginthreadex doesn't result in an automatically closed handle.
+	uintptr_t handle = _beginthreadex(HbNull, 0, HbParalleli_Windows_Thread_Entry, parameters, 0, HbNull);
+	if (handle == 0) {
 		free(parameters);
 		return HbFalse;
 	}
