@@ -40,7 +40,8 @@ void HbLoad_GPUCopier_Destroy(HbLoad_GPUCopier * copier);
 // Call occasionally to move slots of the completed submissions back to the free queue, and most importantly to mark the asset as loaded
 // (by doing something for its requestData). blockUntilComplete is for rare cases, actually awaits completion, mostly for destruction.
 HbBool HbLoad_GPUCopier_HandleCompletion(HbLoad_GPUCopier * copier, void * * requestDataOut, HbBool blockUntilComplete);
-
+// Awaits the first submission's completion so the next HbLoad_GPUCopier_HandleCompletion call will return a submission (if there's any) immediately.
+void HbLoad_GPUCopier_AwaitFirstComplete(HbLoad_GPUCopier * copier);
 // To upload something, the following things need to be done:
 // 1) Request a submission. This will check if there are free submissions, and will return one (and make it not free) if there is
 // 2) GetBuffer when the size is known - will return the mapping of the buffer.

@@ -17,6 +17,10 @@
 #include <dxgi1_4.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 HbBool HbGPU_Init(HbBool debug);
 void HbGPU_Shutdown();
 
@@ -173,7 +177,7 @@ typedef enum HbGPU_Image_Format {
 		HbGPU_Image_Format_16_16_16_16_RGBA_UInt,
 		HbGPU_Image_Format_16_16_16_16_RGBA_SNorm,
 		HbGPU_Image_Format_16_16_16_16_RGBA_SInt,
-		HbGPU_Image_Format_16_16_16_16_RGBA_Float,
+		HbGPU_Image_Format_16_16_16_16_RGBA_SFloat,
 		HbGPU_Image_Format_32_R_UInt,
 		HbGPU_Image_Format_32_R_SInt,
 		HbGPU_Image_Format_32_R_SFloat,
@@ -260,13 +264,13 @@ enum {
 
 // Force inline so null checks and pointer passing may be removed.
 HbForceInline void HbGPU_Image_MipSize(uint32_t mip, HbGPU_Image_Dimensions dimensions, uint32_t * width, uint32_t * height, uint32_t * depth) {
-	if (width != HbNull) {
+	if (width != NULL) {
 		*width = HbMaxU32(*width >> mip, 1);
 	}
-	if (height != HbNull) {
+	if (height != NULL) {
 		*height = HbGPU_Image_Dimensions_Are1D(dimensions) ? 1 : HbMaxU32(*height >> mip, 1);
 	}
-	if (depth != HbNull) {
+	if (depth != NULL) {
 		*depth = (dimensions == HbGPU_Image_Dimensions_3D) ? HbMaxU32(*depth >> mip, 1) : 1;
 	}
 }
@@ -783,8 +787,8 @@ typedef struct HbGPU_DrawConfig_RT {
 typedef struct HbGPU_DrawConfig_Info {
 	// Pointers preferred for nested structures for easier reuse of common state parameters.
 
-	HbGPU_ShaderReference shaderVertex;
-	HbGPU_ShaderReference shaderPixel;
+	HbGPU_ShaderReference const * shaderVertex;
+	HbGPU_ShaderReference const * shaderPixel;
 	HbGPU_BindingLayout * bindingLayout;
 
 	HbGPU_DrawConfig_InputPrimitive inputPrimitive;
@@ -834,7 +838,7 @@ typedef struct HbGPU_ComputeConfig {
 } HbGPU_ComputeConfig;
 
 HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * name, HbGPU_Device * device,
-		HbGPU_ShaderReference shader, uint32_t const groupSize[3], HbGPU_BindingLayout * bindingLayout);
+		HbGPU_ShaderReference const * shader, uint32_t const groupSize[3], HbGPU_BindingLayout * bindingLayout);
 void HbGPU_ComputeConfig_Destroy(HbGPU_ComputeConfig * config);
 
 /*****************
@@ -900,6 +904,10 @@ void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Begin(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore);
 void HbGPU_CmdList_Abort(HbGPU_CmdList * cmdList);
 void HbGPU_CmdList_Submit(uint32_t cmdListCount, HbGPU_CmdList * const * cmdLists);
+
+void HbGPU_CmdList_Feedback_BeginNameScope(HbGPU_CmdList * cmdList, char const * name, float r, float g, float b);
+void HbGPU_CmdList_Feedback_EndNameScope(HbGPU_CmdList * cmdList);
+void HbGPU_CmdList_Feedback_InsertText(HbGPU_CmdList * cmdList, char const * text, float r, float g, float b);
 
 // Pass-independent setup.
 void HbGPU_CmdList_SetBindingStores(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore);
@@ -998,5 +1006,10 @@ void HbGPU_CmdList_Copy_ImageXImage(HbGPU_CmdList * cmdList,
 		HbGPU_Image * target, HbGPU_Image_Slice targetSlice, uint32_t targetX, uint32_t targetY, uint32_t targetZ,
 		HbGPU_Image * source, HbGPU_Image_Slice sourceSlice, uint32_t sourceX, uint32_t sourceY, uint32_t sourceZ,
 		uint32_t width, uint32_t height, uint32_t depth);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

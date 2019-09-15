@@ -19,7 +19,7 @@ void HbFile_KV_Read_Init(HbFile_KV_Read_Context * context, void const * data, si
 
 static HbTextU32 HbFile_KV_Read_GetCharacter(HbFile_KV_Read_Context const * context, size_t positionBytes, uint32_t * bytesToNext) {
 	if (positionBytes >= context->size) {
-		if (bytesToNext != HbNull) {
+		if (bytesToNext != NULL) {
 			*bytesToNext = 0;
 		}
 		return '\0';
@@ -38,7 +38,7 @@ static HbTextU32 HbFile_KV_Read_GetCharacter(HbFile_KV_Read_Context const * cont
 				cursor = cursorLF;
 			}
 		}
-		if (bytesToNext != HbNull) {
+		if (bytesToNext != NULL) {
 			*bytesToNext = (uint32_t) ((cursor - cursorStart) * sizeof(HbTextU16));
 		}
 	} else {
@@ -52,7 +52,7 @@ static HbTextU32 HbFile_KV_Read_GetCharacter(HbFile_KV_Read_Context const * cont
 				cursor = cursorLF;
 			}
 		}
-		if (bytesToNext != HbNull) {
+		if (bytesToNext != NULL) {
 			*bytesToNext = (uint32_t) (cursor - cursorStart);
 		}
 	}
@@ -91,7 +91,7 @@ HbTextU32 HbFile_KV_Read_GetStringCharacter(HbFile_KV_Read_Context const * conte
 			character = '\0';
 		}
 	}
-	if (bytesToNext != HbNull) {
+	if (bytesToNext != NULL) {
 		*bytesToNext = character != '\0' ? characterSize : 0;
 	}
 	return character;

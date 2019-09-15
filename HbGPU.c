@@ -113,7 +113,7 @@ uint32_t HbGPU_Image_Copy_ElementSize(HbGPU_Image_Format format, HbBool stencil)
 		[HbGPU_Image_Format_16_16_16_16_RGBA_UInt] = 8,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SNorm] = 8,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SInt] = 8,
-		[HbGPU_Image_Format_16_16_16_16_RGBA_Float] = 8,
+		[HbGPU_Image_Format_16_16_16_16_RGBA_SFloat] = 8,
 		[HbGPU_Image_Format_32_R_UInt] = 4,
 		[HbGPU_Image_Format_32_R_SInt] = 4,
 		[HbGPU_Image_Format_32_R_SFloat] = 4,
@@ -158,13 +158,13 @@ uint32_t HbGPU_Image_Copy_MipLayout(HbGPU_Image_Info const * info, HbBool stenci
 		mipHeight = (mipHeight + 3) >> 2;
 	}
 	uint32_t rowPitch = HbAlignU32(mipWidth * HbGPU_Image_Copy_ElementSize(info->format, stencil), HbGPU_Image_Copy_RowAlignment);
-	if (outRowPitchBytes != HbNull) {
+	if (outRowPitchBytes != NULL) {
 		*outRowPitchBytes = rowPitch;
 	}
-	if (out3DLayerPitchRows != HbNull) {
+	if (out3DLayerPitchRows != NULL) {
 		*out3DLayerPitchRows = mipHeight;
 	}
-	if (outDepth != HbNull) {
+	if (outDepth != NULL) {
 		*outDepth = mipDepth;
 	}
 	return HbAlignU32(rowPitch * mipHeight * mipDepth, HbGPU_Image_Copy_SliceAlignment);

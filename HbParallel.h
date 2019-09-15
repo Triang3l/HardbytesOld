@@ -1,9 +1,13 @@
 #ifndef HbInclude_HbParallel
 #define HbInclude_HbParallel
 #include "HbCommon.h"
-
-// Note: acquire is used like "check atomic -> acquire -> read dependencies",
-// release is used like "write dependencies -> release -> update atomic".
+#if HbPlatform_OS_Windows
+#include <intrin.h>
+#include <Windows.h>
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define HbParallel_Thread_MaxNameLength 15
 
@@ -11,11 +15,9 @@
 /**************************************************
  * Windows and Visual C parallelization primitives
  **************************************************/
-#include <intrin.h>
-#include <Windows.h>
 
 typedef CRITICAL_SECTION HbParallel_Mutex;
-HbForceInline HbParallel_Mutex_Init(HbParallel_Mutex * mutex) {
+HbForceInline HbBool HbParallel_Mutex_Init(HbParallel_Mutex * mutex) {
 	InitializeCriticalSection(mutex);
 	return HbTrue;
 }
@@ -24,7 +26,7 @@ HbForceInline HbParallel_Mutex_Init(HbParallel_Mutex * mutex) {
 #define HbParallel_Mutex_Unlock LeaveCriticalSection
 
 typedef SRWLOCK HbParallel_RWLock;
-HbForceInline HbParallel_RWLock_Init(HbParallel_RWLock * lock) {
+HbForceInline HbBool HbParallel_RWLock_Init(HbParallel_RWLock * lock) {
 	InitializeSRWLock(lock);
 	return HbTrue;
 }
@@ -53,4 +55,7 @@ HbForceInline void HbParallel_Thread_Destroy(HbParallel_Thread * thread) {
 #error No parallelization API implementation for the target OS.
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 #endif

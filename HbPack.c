@@ -31,7 +31,11 @@ HbBool HbPack_GetInfo(void const * pack, uint32_t packSize, HbPack_Info * info, 
 	}
 	if (header->hashMapPresent) {
 		uint32_t hashMapOffset = sizeof(HbPack_Header) + itemCount * sizeof(HbPack_DirectoryEntry);
-		uint32_t hashMapIndexMask = HbHash_Map_GetIndexMask32(itemCount);
+		uint32_t hashMapIndexMaskLog2 = HbHash_MapUtil_GetNeededEntriesLog2(itemCount);
+		if (hashMapIndexMaskLog2 == 0 || hashMapIndexMaskLog2 == UINT32_MAX) {
+			return HbFalse;
+		}
+		uint32_t hashMapIndexMask = ((uint32_t) 1 << hashMapIndexMaskLog2) - 1;
 		// Validation.
 		uint32_t hashMapMaxSize = (packSize - hashMapOffset) / sizeof(uint32_t);
 		if (hashMapMaxSize == 0 || (hashMapMaxSize - 1) < hashMapIndexMask) {
@@ -94,14 +98,14 @@ HbPack_DirectoryEntry const * HbPack_Find(HbPack_Info const * info, char const *
 	if (info->hashMapOffset != 0) {
 		uint32_t hashIndexMask = info->hashMapIndexMask;
 		uint32_t const * hashMap = (uint32_t const *) (info->start + info->hashMapOffset);
-		uint32_t hash = HbHash_FVN1a_HashTextACaseless(name);
+		uint32_t hash = HbHash_FNV1a_HashTextACaseless(name);
 		uint32_t hashIndex = hash & hashIndexMask;
 		uint32_t entryIndex;
 		while ((entryIndex = hashMap[hashIndex]) != HbPack_InvalidItemIndex) {
 			if (HbTextA_CompareCaseless(directory[entryIndex].name, name) == 0) {
 				return &directory[entryIndex];
 			}
-			HbHash_Map_PerturbateIndex(&hash, &hashIndex, hashIndexMask);
+			HbHash_MapUtil_PerturbateIndex(&hash, &hashIndex, hashIndexMask);
 		}
 	} else {
 		uint32_t lowerBound = 0, upperBound = info->itemCount;
@@ -117,5 +121,5 @@ HbPack_DirectoryEntry const * HbPack_Find(HbPack_Info const * info, char const *
 			}
 		}
 	}
-	return HbNull;
+	return NULL;
 }

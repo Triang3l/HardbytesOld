@@ -4,6 +4,9 @@
 #if HbPlatform_OS_WindowsDesktop
 #include <Windows.h>
 #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void HbInput_Init();
 void HbInputi_InitPlatform();
@@ -222,4 +225,7 @@ void HbInput_Gamepad_ApplyDeadZones(float * right, float * up, float innerDeadZo
 void HbInput_Windows_Gamepad_UseXInput(HbBool useXInput);
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 #endif

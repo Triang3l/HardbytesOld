@@ -41,19 +41,19 @@ static unsigned int __stdcall HbParalleli_Windows_Thread_Entry(void * parameters
 
 HbBool HbParallel_Thread_Start(HbParallel_Thread * thread, char const * name, HbParallel_Thread_Entry entry, void * data) {
 	HbParalleli_Windows_Thread_Parameters * parameters = malloc(sizeof(HbParalleli_Windows_Thread_Parameters));
-	if (parameters == HbNull) {
+	if (parameters == NULL) {
 		return HbFalse;
 	}
 	parameters->entry = entry;
 	parameters->data = data;
-	if (name != HbNull) {
+	if (name != NULL) {
 		HbTextA_Copy(parameters->name, HbArrayLength(parameters->name), name);
 	} else {
 		parameters->name[0] = '\0';
 	}
 	// _beginthread is not safe because the handle is closed in the end, and it causes a race condition between the thread being shut down and
 	// the thread doing WaitForSingleObject on it. _beginthreadex doesn't result in an automatically closed handle.
-	uintptr_t handle = _beginthreadex(HbNull, 0, HbParalleli_Windows_Thread_Entry, parameters, 0, HbNull);
+	uintptr_t handle = _beginthreadex(NULL, 0, HbParalleli_Windows_Thread_Entry, parameters, 0, NULL);
 	if (handle == 0) {
 		free(parameters);
 		return HbFalse;

@@ -23,6 +23,7 @@
     <ProjectGuid>{0750641B-3D3E-40BD-BEE5-A3A6488DB969}</ProjectGuid>
     <RootNamespace>Hardbytes</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <ProjectName>Hardbytes</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -87,7 +88,7 @@
     </FxCompile>
     <FxCompile>
       <ShaderModel>5.1</ShaderModel>
-      <VariableName>%(Filename)</VariableName>
+      <VariableName>%(Filename)_DXBC</VariableName>
       <HeaderFileOutput>$(ProjectDir)%(RelativeDir)%(Filename).cso.inc</HeaderFileOutput>
       <ObjectFileOutput />
     </FxCompile>
@@ -109,7 +110,7 @@
     </FxCompile>
     <FxCompile>
       <ShaderModel>5.1</ShaderModel>
-      <VariableName>%(Filename)</VariableName>
+      <VariableName>%(Filename)_DXBC</VariableName>
       <HeaderFileOutput>$(ProjectDir)%(RelativeDir)%(Filename).cso.inc</HeaderFileOutput>
       <ObjectFileOutput />
     </FxCompile>
@@ -130,7 +131,7 @@
     </Link>
     <FxCompile>
       <ShaderModel>5.1</ShaderModel>
-      <VariableName>%(Filename)</VariableName>
+      <VariableName>%(Filename)_DXBC</VariableName>
       <HeaderFileOutput>$(ProjectDir)%(RelativeDir)%(Filename).cso.inc</HeaderFileOutput>
       <ObjectFileOutput />
     </FxCompile>
@@ -151,12 +152,13 @@
     </Link>
     <FxCompile>
       <ShaderModel>5.1</ShaderModel>
-      <VariableName>%(Filename)</VariableName>
+      <VariableName>%(Filename)_DXBC</VariableName>
       <HeaderFileOutput>$(ProjectDir)%(RelativeDir)%(Filename).cso.inc</HeaderFileOutput>
       <ObjectFileOutput />
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="HbAtomic.h" />
     <ClInclude Include="HbBit.h" />
     <ClInclude Include="HbCommon.h" />
     <ClInclude Include="HbCore.h" />
@@ -170,12 +172,12 @@
     <ClInclude Include="HbGPUi_D3D.h" />
     <ClInclude Include="HbHash.h" />
     <ClInclude Include="HbInput.h" />
+    <ClInclude Include="HbLoad.h" />
     <ClInclude Include="HbMemory.h" />
     <ClInclude Include="HbPack.h" />
     <ClInclude Include="HbParallel.h" />
     <ClInclude Include="HbPlatform.h" />
     <ClInclude Include="HbShader.h" />
-    <ClInclude Include="HbLoad.h" />
     <ClInclude Include="HbText.h" />
     <ClInclude Include="HbMath.h" />
   </ItemGroup>
@@ -189,6 +191,7 @@
     <ClCompile Include="HbGPU.c" />
     <ClCompile Include="HbGPUi_D3D.c" />
     <ClCompile Include="HbGPUi_D3D_CmdList.c" />
+    <ClCompile Include="HbGPUi_D3D_PIX.cpp" />
     <ClCompile Include="HbHash.c" />
     <ClCompile Include="HbInput.c" />
     <ClCompile Include="HbInput_Windows.c" />
@@ -204,6 +207,7 @@
   <ItemGroup>
     <None Include="HbShader\HbShader_GeoGen_Icosphere.hlsli" />
     <None Include="HbShader\HbShader_Math.hlsli" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="HbShader\HbShader_FullScreenTexCoordVS.hlsl">
@@ -241,5 +245,12 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\packages\WinPixEventRuntime.1.0.190604001\build\WinPixEventRuntime.targets" Condition="Exists('..\packages\WinPixEventRuntime.1.0.190604001\build\WinPixEventRuntime.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\WinPixEventRuntime.1.0.190604001\build\WinPixEventRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WinPixEventRuntime.1.0.190604001\build\WinPixEventRuntime.targets'))" />
+  </Target>
 </Project>

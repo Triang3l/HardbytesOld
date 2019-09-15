@@ -2,6 +2,13 @@
 #define HbInclude_HbMemory
 #include "HbFeedback.h"
 #include "HbParallel.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// More or less arbitrary value, but dlmalloc doesn't allocate smaller than this.
+#define HbMemory_MinReasonableAllocLog2 5
+#define HbMemory_MinReasonableAlloc ((size_t) 1 << HbMemory_MinReasonableAllocLog2)
 
 /***************************************
  * Tag-based memory allocation tracking
@@ -42,6 +49,7 @@ void HbMemory_Shutdown();
 HbMemory_Tag * HbMemory_Tag_Create(char const * name);
 void HbMemory_Tag_Destroy(HbMemory_Tag * tag, HbBool leaksAreErrors);
 
+// 16-alignment is completely free on 64-bit platforms, free as long as reallocs aren't done on 32-bit (realloc may cause moving).
 void * HbMemory_DoAlloc(HbMemory_Tag * tag, size_t size, HbBool align16,
 		char const * fileName, uint32_t fileLine, HbBool crashOnFailure);
 #define HbMemory_Alloc(tag, size, align16) HbMemory_DoAlloc(tag, size, align16, __FILE__, __LINE__, HbTrue)
@@ -49,7 +57,91 @@ void * HbMemory_DoAlloc(HbMemory_Tag * tag, size_t size, HbBool align16,
 HbBool HbMemory_DoRealloc(void * * memory, size_t size, char const * fileName, uint32_t fileLine, HbBool crashOnFailure);
 #define HbMemory_Realloc(memory, size) HbMemory_DoRealloc(memory, size, __FILE__, __LINE__, HbTrue)
 #define HbMemory_TryRealloc(memory, size) HbMemory_DoRealloc(memory, size, __FILE__, __LINE__, HbFalse)
+size_t HbMemory_GetAllocationSize(void const * memory);
 void HbMemory_Free(void * memory);
+
+/**************************************************************************
+ * Two-level dynamic array
+ * Piece allocations are 16-aligned because realloc is never done for them
+ **************************************************************************/
+
+#define HbMemory_Array2L_PieceCountFewLog2 ((uint32_t) 2)
+#define HbMemory_Array2L_MaxLength ((size_t) ((SIZE_MAX >> 1) + 1))
+typedef struct HbMemory_Array2L {
+	HbMemory_Tag * tag;
+	size_t elementSize;
+	char const * fileName;
+	union {
+		void * few[1 << HbMemory_Array2L_PieceCountFewLog2];
+		void * * many;
+	} pieces;
+	size_t pieceElementIndexMask; // (1 << pieceElementCountLog2) - 1
+	size_t length;
+
+	uint32_t pieceElementCountLog2;
+	uint32_t fileLine;
+	uint32_t pieceCountLog2;
+} HbMemory_Array2L;
+
+void HbMemory_Array2L_DoInit(HbMemory_Array2L * array2L, HbMemory_Tag * tag, size_t elementSize,
+		uint32_t pieceElementCountLog2, char const * fileName, uint32_t fileLine);
+#define HbMemory_Array2L_Init(array2L, tag, elementSize, pieceElementCountLog2) \
+		HbMemory_Array2L_DoInit(array2L, tag, elementSize, pieceElementCountLog2, __FILE__, __LINE__)
+void HbMemory_Array2L_Destroy(HbMemory_Array2L * array2L);
+void HbMemory_Array2L_ReservePiecePointers(HbMemory_Array2L * array2L, size_t elementCount);
+void HbMemory_Array2L_Resize(HbMemory_Array2L * array2L, size_t elementCount, HbBool onlyReserveMemory);
+HbForceInline void const * const * HbMemory_Array2L_GetPiecesC(HbMemory_Array2L const * array2L) {
+	return array2L->pieceCountLog2 <= HbMemory_Array2L_PieceCountFewLog2 ? array2L->pieces.few : array2L->pieces.many;
+}
+HbForceInline void * * HbMemory_Array2L_GetPieces(HbMemory_Array2L * array2L) {
+	return (void * *) HbMemory_Array2L_GetPiecesC((HbMemory_Array2L const *) array2L);
+}
+void const * HbMemory_Array2L_GetC(HbMemory_Array2L const * array2L, size_t offset, size_t * remainingInPiece);
+HbForceInline void * HbMemory_Array2L_Get(HbMemory_Array2L * array2L, size_t offset, size_t * remainingInPiece) {
+	return (void *) HbMemory_Array2L_GetC((HbMemory_Array2L const *) array2L, offset, remainingInPiece);
+}
+inline void * HbMemory_Array2L_Append(HbMemory_Array2L * array2L) {
+	HbMemory_Array2L_Resize(array2L, array2L->length + 1, HbFalse);
+	return HbMemory_Array2L_Get(array2L, array2L->length - 1, NULL);
+}
+void HbMemory_Array2L_RemoveUnsorted(HbMemory_Array2L * array2L, size_t index);
+void HbMemory_Array2L_FillBytes(HbMemory_Array2L * array2L, size_t offset, size_t elementCount, uint8_t value);
+
+/*****************************************************************************
+ * Free list-based allocation with persistent indices (locators) from Array2L
+ *****************************************************************************/
+
+// For more compact storage (8 bytes instead of 16 per element on 64-bit),
+// limiting the maximum number of elements on 64-bit systems.
+
+typedef struct HbMemory_Pool_Locator {
+	uint32_t entryIndex;
+	uint32_t revision;
+} HbMemory_Pool_Locator;
+
+typedef struct HbMemory_Pool_Entry {
+	uint32_t locatorRevision;
+	uint32_t nextFree; // If == index of this, this entry is occupied.
+} HbMemory_Pool_Entry;
+
+typedef struct HbMemory_Pool {
+	HbMemory_Array2L entries;
+	HbMemory_Array2L elementData;
+	uint32_t firstFree;
+} HbMemory_Pool;
+
+void HbMemory_Pool_DoInit(HbMemory_Pool * pool, HbMemory_Tag * tag, size_t elementSize,
+		uint32_t array2LPieceElementCountLog2, char const * fileName, uint32_t fileLine);
+#define HbMemory_Pool_Init(pool, tag, elementSize, array2LPieceElementCountLog2) \
+		HbMemory_Pool_DoInit(pool, tag, elementSize, array2LPieceElementCountLog2, __FILE__, __LINE__)
+void HbMemory_Pool_Destroy(HbMemory_Pool * pool);
+void HbMemory_Pool_Reserve(HbMemory_Pool * pool, uint32_t elementCount);
+void const * HbMemory_Pool_GetC(HbMemory_Pool const * pool, HbMemory_Pool_Locator locator);
+HbForceInline void * HbMemory_Pool_Get(HbMemory_Pool * pool, HbMemory_Pool_Locator locator) {
+	return (void *) HbMemory_Pool_GetC((HbMemory_Pool const *) pool, locator);
+}
+HbMemory_Pool_Locator HbMemory_Pool_Alloc(HbMemory_Pool * pool);
+void HbMemory_Pool_Free(HbMemory_Pool * pool, HbMemory_Pool_Locator locator);
 
 /************************************************************************
  * Power of two (buddy) allocator for data indexes (not for data itself)
@@ -100,4 +192,7 @@ uint32_t HbMemory_PO2Alloc_TryAlloc(HbMemory_PO2Alloc * allocator, uint32_t coun
 uint32_t HbMemory_PO2Alloc_Alloc(HbMemory_PO2Alloc * allocator, uint32_t count);
 void HbMemory_PO2Alloc_Free(HbMemory_PO2Alloc * allocator, uint32_t index);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

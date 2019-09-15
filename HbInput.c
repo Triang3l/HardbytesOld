@@ -156,14 +156,14 @@ static HbInput_Button_Code * HbInput_Button_BindingNameHashMap;
 static uint32_t HbInput_Button_BindingNameHashMapMask;
 
 HbInput_Button_Code HbInput_Button_CodeForBindingName(char const * bindingName) {
-	uint32_t hash = HbHash_FVN1a_HashTextACaseless(bindingName);
+	uint32_t hash = HbHash_FNV1a_HashTextACaseless(bindingName);
 	uint32_t index = hash & HbInput_Button_BindingNameHashMapMask;
 	HbInput_Button_Code button;
 	while ((button = HbInput_Button_BindingNameHashMap[index]) != HbInput_Button_Code_Invalid) {
 		if (HbTextA_CompareCaseless(HbInput_Button_BindingNames[button], bindingName) == 0) {
 			break;
 		}
-		HbHash_Map_PerturbateIndex(&hash, &index, HbInput_Button_BindingNameHashMapMask);
+		HbHash_MapUtil_PerturbateIndex(&hash, &index, HbInput_Button_BindingNameHashMapMask);
 	}
 	return button;
 }
@@ -178,7 +178,7 @@ HbInput_Gamepad const * HbInput_Gamepad_GetByHandle(uint32_t handle) {
 			return gamepad;
 		}
 	}
-	return HbNull;
+	return NULL;
 }
 
 void HbInput_Gamepad_ApplyDeadZones(float * right, float * up, float innerDeadZoneHalfWidth, float outerDeadZoneRadius) {
@@ -202,20 +202,20 @@ void HbInput_Init() {
 	HbInput_MemoryTag = HbMemory_Tag_Create("HbInput");
 
 	// Generate the hash table for binding name -> button code mapping.
-	HbInput_Button_BindingNameHashMapMask = HbHash_Map_GetIndexMask32(HbInput_Button_Code_Count);
+	HbInput_Button_BindingNameHashMapMask = ((uint32_t) 1 << HbHash_MapUtil_GetNeededEntriesLog2(HbInput_Button_Code_Count)) - 1;
 	size_t bindingNameHashMapSize = ((size_t) HbInput_Button_BindingNameHashMapMask + 1) * sizeof(HbInput_Button_Code);
 	HbInput_Button_BindingNameHashMap = HbMemory_Alloc(HbInput_MemoryTag, bindingNameHashMapSize, HbFalse);
 	HbFeedback_StaticAssert(HbInput_Button_Code_Invalid == 0, "HbInput_Button_Invalid must be 0 for hash map memsetting.");
 	memset(HbInput_Button_BindingNameHashMap, 0, bindingNameHashMapSize);
 	for (uint32_t buttonCode = 1; buttonCode < HbInput_Button_Code_Count; ++buttonCode) {
 		char const * bindingName = HbInput_Button_BindingNames[buttonCode];
-		if (bindingName == HbNull) {
+		if (bindingName == NULL) {
 			continue;
 		}
-		uint32_t bindingNameHash = HbHash_FVN1a_HashTextACaseless(bindingName);
+		uint32_t bindingNameHash = HbHash_FNV1a_HashTextACaseless(bindingName);
 		uint32_t bindingNameHashMapIndex = bindingNameHash & HbInput_Button_BindingNameHashMapMask;
 		while (HbInput_Button_BindingNameHashMap[bindingNameHashMapIndex] != HbInput_Button_Code_Invalid) {
-			HbHash_Map_PerturbateIndex(&bindingNameHash, &bindingNameHashMapIndex, HbInput_Button_BindingNameHashMapMask);
+			HbHash_MapUtil_PerturbateIndex(&bindingNameHash, &bindingNameHashMapIndex, HbInput_Button_BindingNameHashMapMask);
 		}
 		HbInput_Button_BindingNameHashMap[bindingNameHashMapIndex] = (HbInput_Button_Code) buttonCode;
 	}

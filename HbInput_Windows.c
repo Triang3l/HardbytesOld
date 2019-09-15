@@ -57,7 +57,7 @@ void HbInputi_InitPlatform() {
 static void HbInputi_Windows_Gamepad_ReleaseGamepads() {
 	for (uint32_t gamepadIndex = 0; gamepadIndex < HbInputi_Windows_Gamepad_ConnectedCount; ++gamepadIndex) {
 		__x_ABI_CWindows_CGaming_CInput_CIGamepad * gamepad = HbInputi_Windows_Gamepad_Connected[gamepadIndex].gamingInputGamepad;
-		if (gamepad != HbNull) { // Might be connected via XInput in the previous update.
+		if (gamepad != NULL) { // Might be connected via XInput in the previous update.
 			gamepad->lpVtbl->Release(gamepad);
 		}
 	}
@@ -219,7 +219,7 @@ static void HbInputi_Windows_Gamepad_Update_XInput() {
 		uint32_t gamepadIndex = (uint32_t) HbBit_LowestOneU32(gamepadBits);
 		gamepadBits &= ~(1 << gamepadIndex);
 		HbInputi_Windows_Gamepad * connectedGamepad = &HbInputi_Windows_Gamepad_Connected[HbInputi_Windows_Gamepad_ConnectedCount++];
-		connectedGamepad->gamingInputGamepad = HbNull;
+		connectedGamepad->gamingInputGamepad = NULL;
 		connectedGamepad->xInputUser = gamepadIndex;
 		uint32_t gamepadHandle = gamepadHandles[gamepadIndex];
 		if (gamepadHandle == HbInput_Gamepad_InvalidHandle) {
@@ -255,7 +255,7 @@ uint32_t HbInput_Gamepad_GetCount() {
 
 HbInput_Gamepad const * HbInput_Gamepad_GetByIndex(uint32_t index) {
 	if (index >= HbInputi_Windows_Gamepad_ConnectedCount) {
-		return HbNull;
+		return NULL;
 	}
 	return &HbInputi_Windows_Gamepad_Connected[index].state;
 }

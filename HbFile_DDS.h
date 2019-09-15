@@ -1,6 +1,9 @@
 #ifndef HbInclude_HbFile_DDS
 #define HbInclude_HbFile_DDS
 #include "HbGPU.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define HbFile_DDS_Magic 0x20534444
 
@@ -186,4 +189,7 @@ typedef struct HbFile_DDS_HeaderDXT10 {
 // dds must be 4-aligned. Returns pointer to the texture data if successful, with byte-aligned rows and slices.
 void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbGPU_Image_Info * info);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

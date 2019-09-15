@@ -43,7 +43,7 @@ static HbGPU_Image_Format const HbFile_DDS_DXGIFormatsToImageFormats[] = {
 	[HbFile_DDS_DXGIFormat_R32G32B32A32_Float] = HbGPU_Image_Format_32_32_32_32_RGBA_SFloat,
 	[HbFile_DDS_DXGIFormat_R32G32B32A32_UInt] = HbGPU_Image_Format_32_32_32_32_RGBA_UInt,
 	[HbFile_DDS_DXGIFormat_R32G32B32A32_SInt] = HbGPU_Image_Format_32_32_32_32_RGBA_SInt,
-	[HbFile_DDS_DXGIFormat_R16G16B16A16_Float] = HbGPU_Image_Format_16_16_16_16_RGBA_Float,
+	[HbFile_DDS_DXGIFormat_R16G16B16A16_Float] = HbGPU_Image_Format_16_16_16_16_RGBA_SFloat,
 	[HbFile_DDS_DXGIFormat_R16G16B16A16_UNorm] = HbGPU_Image_Format_16_16_16_16_RGBA_UNorm,
 	[HbFile_DDS_DXGIFormat_R16G16B16A16_UInt] = HbGPU_Image_Format_16_16_16_16_RGBA_UInt,
 	[HbFile_DDS_DXGIFormat_R16G16B16A16_SNorm] = HbGPU_Image_Format_16_16_16_16_RGBA_SNorm,
@@ -103,21 +103,21 @@ static HbGPU_Image_Format const HbFile_DDS_DXGIFormatsToImageFormats[] = {
 
 void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbGPU_Image_Info * info) {
 	if (ddsSize < sizeof(uint32_t) + sizeof(HbFile_DDS_Header)) {
-		return HbNull;
+		return NULL;
 	}
 	if (*((uint32_t const *) dds) != HbFile_DDS_Magic) {
-		return HbNull;
+		return NULL;
 	}
 	HbFile_DDS_Header const * header = (HbFile_DDS_Header const *) ((uint8_t const *) dds + sizeof(uint32_t));
 	if (header->structSize != sizeof(HbFile_DDS_Header) || (header->flags & HbFile_DDS_Flags_Required) != HbFile_DDS_Flags_Required ||
 			header->height == 0 || header->width == 0) {
-		return HbNull;
+		return NULL;
 	}
 	uint32_t mipMapCount = 1;
 	if (header->flags & HbFile_DDS_Flags_MipMapCount) {
 		mipMapCount = header->mipMapCount;
 		if (mipMapCount == 0) {
-			return HbNull;
+			return NULL;
 		}
 	}
 	HbGPU_Image_Dimensions dimensions;
@@ -127,18 +127,18 @@ void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbG
 	uint32_t fourCC = (header->pixelFormat.flags & HbFile_DDS_PixelFormat_Flags_FourCC) ? header->pixelFormat.fourCC : 0;
 	if (fourCC == HbFile_DDS_FourCC_DX10) {
 		if (ddsSize < (imageDataOffset + sizeof(HbFile_DDS_HeaderDXT10))) {
-			return HbNull;
+			return NULL;
 		}
 		HbFile_DDS_HeaderDXT10 const * headerDXT10 = (HbFile_DDS_HeaderDXT10 const *) ((uint8_t const *) dds + imageDataOffset);
 		imageDataOffset += sizeof(HbFile_DDS_HeaderDXT10);
 		arraySize = headerDXT10->arraySize;
 		if (arraySize == 0) {
-			return HbNull;
+			return NULL;
 		}
 		switch (headerDXT10->dimension) {
 		case HbFile_DDS_Dimension_Texture1D:
 			if (header->height != 1) {
-				return HbNull;
+				return NULL;
 			}
 			dimensions = arraySize > 1 ? HbGPU_Image_Dimensions_1DArray : HbGPU_Image_Dimensions_1D;
 			break;
@@ -151,19 +151,19 @@ void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbG
 			break;
 		case HbFile_DDS_Dimension_Texture3D:
 			if (arraySize != 1 || !(header->flags & HbFile_DDS_Flags_Volume)) {
-				return HbNull;
+				return NULL;
 			}
 			dimensions = HbGPU_Image_Dimensions_3D;
 			depth = header->depth;
 			if (depth == 0) {
-				return HbNull;
+				return NULL;
 			}
 			break;
 		default:
-			return HbNull;
+			return NULL;
 		}
 		if (headerDXT10->dxgiFormat >= HbArrayLength(HbFile_DDS_DXGIFormatsToImageFormats)) {
-			return HbNull;
+			return NULL;
 		}
 		format = HbFile_DDS_DXGIFormatsToImageFormats[headerDXT10->dxgiFormat];
 	} else {
@@ -171,11 +171,11 @@ void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbG
 			dimensions = HbGPU_Image_Dimensions_3D;
 			depth = header->depth;
 			if (depth == 0) {
-				return HbNull;
+				return NULL;
 			}
 		} else if (header->caps2 & HbFile_DDS_Caps2_Cubemap) {
 			if ((header->caps2 & HbFile_DDS_Caps2_CubemapAllFaces) != HbFile_DDS_Caps2_CubemapAllFaces) {
-				return HbNull;
+				return NULL;
 			}
 			dimensions = HbGPU_Image_Dimensions_Cube;
 		} else {
@@ -227,7 +227,7 @@ void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbG
 	info->samplesLog2 = 0;
 	info->usageOptions = 0;
 	if (!HbGPU_Image_Info_CleanupAndValidate(info)) {
-		return HbNull;
+		return NULL;
 	}
 	uint32_t formatElementSize = HbGPU_Image_Copy_ElementSize(format, HbFalse);
 	HbBool formatIs4x4 = HbGPU_Image_Format_Is4x4(format);
@@ -248,7 +248,7 @@ void const * HbFile_DDS_ValidateAndGetInfo(void const * dds, size_t ddsSize, HbG
 		requiredImageDataSize *= arraySize;
 	}
 	if (ddsSize < imageDataOffset + requiredImageDataSize) {
-		return HbNull;
+		return NULL;
 	}
 	return (uint8_t const *) dds + imageDataOffset;
 }

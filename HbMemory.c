@@ -1,6 +1,6 @@
-#include "HbMemory.h"
 #include "HbBit.h"
 #include "HbFeedback.h"
+#include "HbMemory.h"
 #include "HbText.h"
 
 /***************************************
@@ -14,11 +14,11 @@ void HbMemory_Init() {
 	if (!HbParallel_Mutex_Init(&HbMemoryi_TagListMutex)) {
 		HbFeedback_Crash("HbMemory_Init", "Failed to initialize the global tag list mutex.");
 	}
-	HbMemoryi_TagFirst = HbMemoryi_TagLast = HbNull;
+	HbMemoryi_TagFirst = HbMemoryi_TagLast = NULL;
 }
 
 void HbMemory_Shutdown() {
-	if (HbMemoryi_TagFirst != HbNull) {
+	if (HbMemoryi_TagFirst != NULL) {
 		HbFeedback_Crash("HbMemory_Shutdown", "Not all memory tags were destroyed.");
 	}
 	HbParallel_Mutex_Destroy(&HbMemoryi_TagListMutex);
@@ -26,28 +26,28 @@ void HbMemory_Shutdown() {
 
 HbMemory_Tag * HbMemory_Tag_Create(char const * name) {
 	HbMemory_Tag * tag = malloc(sizeof(HbMemory_Tag));
-	if (tag == HbNull) {
+	if (tag == NULL) {
 		HbFeedback_Crash("HbMemory_Tag_Create", "Failed to allocate memory for a tag.");
 	}
 	if (!HbParallel_Mutex_Init(&tag->mutex)) {
 		HbFeedback_Crash("HbMemory_Tag_Create", "Failed to initialize the mutex for a tag.");
 	}
-	if (name != HbNull) {
+	if (name != NULL) {
 		HbTextA_Copy(tag->name, HbArrayLength(tag->name), name);
 	} else {
 		tag->name[0] = '\0';
 	}
-	tag->allocationFirst = tag->allocationLast = HbNull;
+	tag->allocationFirst = tag->allocationLast = NULL;
 	tag->totalAllocatedSize = 0;
 
 	HbParallel_Mutex_Lock(&HbMemoryi_TagListMutex);
 	tag->globalTagPrevious = HbMemoryi_TagLast;
-	tag->globalTagNext = HbNull;
-	if (HbMemoryi_TagLast != HbNull) {
+	tag->globalTagNext = NULL;
+	if (HbMemoryi_TagLast != NULL) {
 		HbMemoryi_TagLast->globalTagNext = tag;
 	}
 	HbMemoryi_TagLast = tag;
-	if (HbMemoryi_TagFirst == HbNull) {
+	if (HbMemoryi_TagFirst == NULL) {
 		HbMemoryi_TagFirst = tag;
 	}
 	HbParallel_Mutex_Unlock(&HbMemoryi_TagListMutex);
@@ -57,12 +57,12 @@ HbMemory_Tag * HbMemory_Tag_Create(char const * name) {
 
 void HbMemory_Tag_Destroy(HbMemory_Tag * tag, HbBool leaksAreErrors) {
 	HbParallel_Mutex_Lock(&HbMemoryi_TagListMutex);
-	if (tag->globalTagPrevious != HbNull) {
+	if (tag->globalTagPrevious != NULL) {
 		tag->globalTagPrevious->globalTagNext = tag->globalTagNext;
 	} else {
 		HbMemoryi_TagFirst = tag->globalTagNext;
 	}
-	if (tag->globalTagNext != HbNull) {
+	if (tag->globalTagNext != NULL) {
 		tag->globalTagNext->globalTagPrevious = tag->globalTagPrevious;
 	} else {
 		HbMemoryi_TagLast = tag->globalTagPrevious;
@@ -73,7 +73,7 @@ void HbMemory_Tag_Destroy(HbMemory_Tag * tag, HbBool leaksAreErrors) {
 	uint32_t leakCount = 0;
 	HbParallel_Mutex_Lock(&tag->mutex);
 	HbMemoryi_Allocation * allocation = tag->allocationFirst;
-	while (allocation != HbNull) {
+	while (allocation != NULL) {
 		HbMemoryi_Allocation * allocationNext = allocation->tagAllocationNext;
 		++leakCount;
 		if (leaksAreErrors) {
@@ -86,7 +86,7 @@ void HbMemory_Tag_Destroy(HbMemory_Tag * tag, HbBool leaksAreErrors) {
 	HbParallel_Mutex_Unlock(&tag->mutex);
 	if (leaksAreErrors && leakCount > 0) {
 		HbFeedback_Crash("HbMemory_Tag_Destroy", "%u memory leaks in tag %s - see debug message log.",
-				leakCount, tag->name != HbNull ? tag->name : "(unnamed)");
+				leakCount, tag->name != NULL ? tag->name : "(unnamed)");
 	}
 
 	HbParallel_Mutex_Destroy(&tag->mutex);
@@ -103,12 +103,12 @@ void * HbMemory_DoAlloc(HbMemory_Tag * tag, size_t size, HbBool align16,
 	}
 	#endif
 	HbMemoryi_Allocation * allocation = malloc(mallocSize);
-	if (allocation == HbNull) {
+	if (allocation == NULL) {
 		if (crashOnFailure) {
 			HbFeedback_Crash("HbMemory_DoAlloc", "Failed to allocate %zu bytes in tag %s at %s:%u.",
-					size, tag->name != HbNull ? tag->name : "(unnamed)", fileName, fileLine);
+					size, tag->name != NULL ? tag->name : "(unnamed)", fileName, fileLine);
 		}
-		return HbNull;
+		return NULL;
 	}
 
 	void * memory = allocation + 1;
@@ -128,12 +128,12 @@ void * HbMemory_DoAlloc(HbMemory_Tag * tag, size_t size, HbBool align16,
 
 	HbParallel_Mutex_Lock(&tag->mutex);
 	allocation->tagAllocationPrevious = tag->allocationLast;
-	allocation->tagAllocationNext = HbNull;
-	if (tag->allocationLast != HbNull) {
+	allocation->tagAllocationNext = NULL;
+	if (tag->allocationLast != NULL) {
 		tag->allocationLast->tagAllocationNext = allocation;
 	}
 	tag->allocationLast = allocation;
-	if (tag->allocationFirst == HbNull) {
+	if (tag->allocationFirst == NULL) {
 		tag->allocationFirst = allocation;
 	}
 	tag->totalAllocatedSize += size;
@@ -143,8 +143,8 @@ void * HbMemory_DoAlloc(HbMemory_Tag * tag, size_t size, HbBool align16,
 }
 
 static inline HbMemoryi_Allocation * HbMemoryi_GetAllocation(void * memory) {
-	if (memory == HbNull) {
-		return HbNull;
+	if (memory == NULL) {
+		return NULL;
 	}
 	HbMemoryi_Allocation * allocation = (HbMemoryi_Allocation *) memory - 1;
 	#if HbPlatform_CPU_32Bit
@@ -154,14 +154,14 @@ static inline HbMemoryi_Allocation * HbMemoryi_GetAllocation(void * memory) {
 	#endif
 	if (allocation->marker != HbMemoryi_Allocation_Marker_Aligned8 &&
 		allocation->marker != HbMemoryi_Allocation_Marker_Aligned16) {
-		return HbNull;
+		return NULL;
 	}
 	return allocation;
 }
 
 HbBool HbMemory_DoRealloc(void * * memory, size_t size, char const * fileName, uint32_t fileLine, HbBool crashOnFailure) {
 	HbMemoryi_Allocation * allocation = HbMemoryi_GetAllocation(*memory);
-	if (allocation == HbNull) {
+	if (allocation == NULL) {
 		HbFeedback_Crash("HbMemory_DoRealloc", "Tried to reallocate %p at %s:%u which was not allocated with HbMemory_Alloc.",
 				*memory, fileName, fileLine);
 	}
@@ -188,21 +188,21 @@ HbBool HbMemory_DoRealloc(void * * memory, size_t size, char const * fileName, u
 
 	HbParallel_Mutex_Lock(&tag->mutex);
 	allocation = realloc(allocation, mallocSize);
-	if (allocation == HbNull) {
+	if (allocation == NULL) {
 		HbParallel_Mutex_Unlock(&tag->mutex);
 		if (crashOnFailure) {
 			HbFeedback_Crash("HbMemory_DoRealloc", "Failed to reallocate %zu->%zu bytes in tag %s at %s:%u.",
-					oldSize, size, tag->name != HbNull ? tag->name : "(unnamed)", fileName, fileLine);
+					oldSize, size, tag->name != NULL ? tag->name : "(unnamed)", fileName, fileLine);
 		}
 		return HbFalse;
 	}
 	// The pointer to the allocation may now be different, so relink it.
-	if (allocation->tagAllocationPrevious != HbNull) {
+	if (allocation->tagAllocationPrevious != NULL) {
 		allocation->tagAllocationPrevious->tagAllocationNext = allocation;
 	} else {
 		tag->allocationFirst = allocation;
 	}
-	if (allocation->tagAllocationNext != HbNull) {
+	if (allocation->tagAllocationNext != NULL) {
 		allocation->tagAllocationNext->tagAllocationPrevious = allocation;
 	} else {
 		tag->allocationLast = allocation;
@@ -237,24 +237,35 @@ HbBool HbMemory_DoRealloc(void * * memory, size_t size, char const * fileName, u
 	return HbTrue;
 }
 
+size_t HbMemory_GetAllocationSize(void const * memory) {
+	if (memory == NULL) {
+		return 0;
+	}
+	HbMemoryi_Allocation * allocation = HbMemoryi_GetAllocation((void *) memory);
+	if (allocation == NULL) {
+		HbFeedback_Crash("HbMemory_GetAllocationSize", "Tried to get the size of %p which was not allocated with HbMemory_Alloc.", memory);
+	}
+	return allocation->size;
+}
+
 void HbMemory_Free(void * memory) {
-	if (memory == HbNull) {
+	if (memory == NULL) {
 		return; // To match C behavior, and for easier shutdown of things.
 	}
 
 	HbMemoryi_Allocation * allocation = HbMemoryi_GetAllocation(memory);
-	if (allocation == HbNull) {
+	if (allocation == NULL) {
 		HbFeedback_Crash("HbMemory_Free", "Tried to free %p which was not allocated with HbMemory_Alloc.", memory);
 	}
 
 	HbMemory_Tag * tag = allocation->tag;
 	HbParallel_Mutex_Lock(&tag->mutex);
-	if (allocation->tagAllocationPrevious != HbNull) {
+	if (allocation->tagAllocationPrevious != NULL) {
 		allocation->tagAllocationPrevious->tagAllocationNext = allocation->tagAllocationNext;
 	} else {
 		tag->allocationFirst = allocation->tagAllocationNext;
 	}
-	if (allocation->tagAllocationNext != HbNull) {
+	if (allocation->tagAllocationNext != NULL) {
 		allocation->tagAllocationNext->tagAllocationPrevious = allocation->tagAllocationPrevious;
 	} else {
 		tag->allocationLast = allocation->tagAllocationPrevious;
@@ -263,6 +274,207 @@ void HbMemory_Free(void * memory) {
 	HbParallel_Mutex_Unlock(&tag->mutex);
 
 	free(allocation);
+}
+
+/**************************
+ * Two-level dynamic array
+ **************************/
+
+void HbMemory_Array2L_DoInit(HbMemory_Array2L * array2L, HbMemory_Tag * tag, size_t elementSize,
+		uint32_t pieceElementCountLog2, char const * fileName, uint32_t fileLine) {
+	if (elementSize == 0 || pieceElementCountLog2 == 0) {
+		HbFeedback_Crash("HbMemory_Array2L_DoInit", "Zero sizes specified at %s:%u.", fileName, fileLine);
+	}
+	if (pieceElementCountLog2 > (sizeof(size_t) * 8 - 1) || (HbMemory_Array2L_MaxLength >> pieceElementCountLog2) < elementSize) {
+		// Would cause integer overflow.
+		HbFeedback_Crash("HbMemory_Array2L_DoInit", "Too many elements per piece (2^%u, max 0x%zX) at %s:%u.",
+				pieceElementCountLog2, HbMemory_Array2L_MaxLength / elementSize, fileName, fileLine);
+	}
+	// elementSize * (1 << pieceElementCountLog2) may still overflow, but that would be totally insane.
+	array2L->tag = tag;
+	array2L->elementSize = elementSize;
+	array2L->pieceElementCountLog2 = pieceElementCountLog2;
+	array2L->fileName = fileName;
+	array2L->fileLine = fileLine;
+	array2L->pieceElementIndexMask = ((size_t) 1 << pieceElementCountLog2) - 1;
+	array2L->pieceCountLog2 = HbMemory_Array2L_PieceCountFewLog2;
+	array2L->length = 0;
+	memset(array2L->pieces.few, 0, sizeof(array2L->pieces.few));
+}
+
+void HbMemory_Array2L_Destroy(HbMemory_Array2L * array2L) {
+	void * * pieces = HbMemory_Array2L_GetPieces(array2L);
+	size_t pieceCount = (size_t) 1 << array2L->pieceCountLog2;
+	for (uint64_t pieceIndex = 0; pieceIndex < pieceCount; ++pieceIndex) {
+		HbMemory_Free(pieces[pieceIndex]);
+	}
+	if (array2L->pieceCountLog2 > HbMemory_Array2L_PieceCountFewLog2) {
+		HbMemory_Free(array2L->pieces.many);
+	}
+}
+
+void HbMemory_Array2L_ReservePiecePointers(HbMemory_Array2L * array2L, size_t elementCount) {
+	if (elementCount > HbMemory_Array2L_MaxLength) {
+		HbFeedback_Crash("HbMemory_Array2L_ReservePiecePointers",
+				"Too many elements requested (0x%zX), max 0x%zX.", array2L, elementCount);
+	}
+	size_t pieceCount = (elementCount + array2L->pieceElementIndexMask) >> array2L->pieceElementCountLog2;
+	if (pieceCount <= (size_t) 1 << HbMaxU32(array2L->pieceCountLog2, HbMemory_Array2L_PieceCountFewLog2)) {
+		return;
+	}
+	uint32_t pieceCountLog2 = HbBit_Log2CeilSize(pieceCount);
+	pieceCount = ((size_t) 1) << pieceCountLog2;
+	size_t pieceCountOld = ((size_t) 1) << array2L->pieceCountLog2;
+	if (array2L->pieceCountLog2 <= HbMemory_Array2L_PieceCountFewLog2) {
+		// In a union with `few` - store in a local variable first.
+		void * * pieces = HbMemory_DoAlloc(array2L->tag, pieceCount * sizeof(void * *), HbFalse,
+				array2L->fileName, array2L->fileLine, HbTrue);
+		memcpy(pieces, array2L->pieces.few, pieceCountOld * sizeof(void * *));
+		array2L->pieces.many = pieces;
+	} else {
+		HbMemory_DoRealloc(&((void *) array2L->pieces.many), pieceCount * sizeof(void * *), array2L->fileName, array2L->fileLine, HbTrue);
+	}
+	memset(array2L->pieces.many + pieceCountOld, 0, (pieceCount - pieceCountOld) * sizeof(void * *));
+	array2L->pieceCountLog2 = pieceCountLog2;
+}
+
+void HbMemory_Array2L_Resize(HbMemory_Array2L * array2L, size_t elementCount, HbBool onlyReserveMemory) {
+	if (elementCount == 0) {
+		return;
+	}
+	if (elementCount > HbMemory_Array2L_MaxLength) {
+		HbFeedback_Crash("HbMemory_Array2L_Resize", "Too many elements requested (0x%zX), max 0x%zX.", array2L, elementCount);
+	}
+	HbMemory_Array2L_ReservePiecePointers(array2L, elementCount);
+	if (!onlyReserveMemory) {
+		array2L->length = elementCount;
+	}
+	void * * pieces = HbMemory_Array2L_GetPieces(array2L);
+	size_t pieceCount = (elementCount + array2L->pieceElementIndexMask) >> array2L->pieceElementCountLog2;
+	// Allocate pieces starting from the first unallocated one.
+	size_t pieceIndex;
+	for (pieceIndex = pieceCount - 1;; --pieceIndex) {
+		if (pieces[pieceIndex] == NULL) {
+			break;
+		}
+		if (pieceIndex == 0) {
+			return;
+		}
+	}
+	size_t pieceSize = array2L->elementSize << array2L->pieceElementCountLog2;
+	for (; pieceIndex < pieceCount; ++pieceIndex) {
+		pieces[pieceIndex] = HbMemory_DoAlloc(array2L->tag, pieceSize, HbTrue, array2L->fileName, array2L->fileLine, HbTrue);
+	}
+}
+
+void const * HbMemory_Array2L_GetC(HbMemory_Array2L const * array2L, size_t offset, size_t * remainingInPiece) {
+	if (offset >= array2L->length) {
+		// End of iteration.
+		if (remainingInPiece != NULL) {
+			*remainingInPiece = 0;
+		}
+		return NULL;
+	}
+	size_t pieceElementIndex = offset & array2L->pieceElementIndexMask;
+	if (remainingInPiece) {
+		*remainingInPiece = HbMinSize(array2L->pieceElementIndexMask + 1 - pieceElementIndex, array2L->length - offset);
+	}
+	return (uint8_t const *) HbMemory_Array2L_GetPiecesC(array2L)[offset >> array2L->pieceElementCountLog2] +
+			pieceElementIndex * array2L->elementSize;
+}
+
+void HbMemory_Array2L_RemoveUnsorted(HbMemory_Array2L * array2L, size_t index) {
+	if (index + 1 < array2L->length) {
+		memcpy(HbMemory_Array2L_Get(array2L, index, NULL), HbMemory_Array2L_Get(array2L, array2L->length - 1, NULL), array2L->elementSize);
+	}
+	--array2L->length;
+}
+
+void HbMemory_Array2L_FillBytes(HbMemory_Array2L * array2L, size_t offset, size_t elementCount, uint8_t value) {
+	if (offset > array2L->length || array2L->length - offset < elementCount) {
+		HbFeedback_Crash("HbMemory_Array2L_FillBytes", "Tried to fill %zu elements starting from %u, while the array is %zu elements long.",
+				elementCount, offset, array2L->length);
+	}
+	while (elementCount > 0) {
+		size_t memsetElementCount;
+		void * elements = HbMemory_Array2L_Get(array2L, offset, &memsetElementCount);
+		memsetElementCount = HbMinSize(memsetElementCount, elementCount);
+		memset(elements, value, memsetElementCount * array2L->elementSize);
+		elementCount -= memsetElementCount;
+	}
+}
+
+/*****************************************************************************
+ * Free list-based allocation with persistent indices (locators) from Array2L
+ *****************************************************************************/
+
+void HbMemory_Pool_DoInit(HbMemory_Pool * pool, HbMemory_Tag * tag, size_t elementSize,
+		uint32_t array2LPieceElementCountLog2, char const * fileName, uint32_t fileLine) {
+	HbMemory_Array2L_DoInit(&pool->entries, tag, sizeof(HbMemory_Pool_Entry), array2LPieceElementCountLog2, fileName, fileLine);
+	HbMemory_Array2L_DoInit(&pool->elementData, tag, elementSize, array2LPieceElementCountLog2, fileName, fileLine);
+	pool->firstFree = UINT32_MAX;
+}
+
+void HbMemory_Pool_Destroy(HbMemory_Pool * pool) {
+	HbMemory_Array2L_Destroy(&pool->elementData);
+	HbMemory_Array2L_Destroy(&pool->entries);
+}
+
+void HbMemory_Pool_Reserve(HbMemory_Pool * pool, uint32_t elementCount) {
+	HbMemory_Array2L_Resize(&pool->entries, elementCount, HbTrue);
+	HbMemory_Array2L_Resize(&pool->elementData, elementCount, HbTrue);
+}
+
+void const * HbMemory_Pool_GetC(HbMemory_Pool const * pool, HbMemory_Pool_Locator locator) {
+	if (locator.entryIndex >= pool->entries.length) {
+		return NULL;
+	}
+	HbMemory_Pool_Entry const * entry =
+			(HbMemory_Pool_Entry const *) HbMemory_Array2L_GetC(&pool->entries, locator.entryIndex, NULL);
+	if (entry->nextFree != locator.entryIndex) {
+		// Free entry.
+		return NULL;
+	}
+	if (entry->locatorRevision != locator.revision) {
+		return NULL;
+	}
+	return HbMemory_Array2L_GetC(&pool->elementData, locator.entryIndex, NULL);
+}
+
+HbMemory_Pool_Locator HbMemory_Pool_Alloc(HbMemory_Pool * pool) {
+	HbMemory_Pool_Locator locator;
+	if (pool->firstFree != UINT32_MAX) {
+		locator.entryIndex = pool->firstFree;
+		HbMemory_Pool_Entry * entry = (HbMemory_Pool_Entry *) HbMemory_Array2L_Get(&pool->entries, locator.entryIndex, NULL);
+		locator.revision = ++entry->locatorRevision;
+		pool->firstFree = entry->nextFree;
+		entry->nextFree = locator.entryIndex; 
+	} else {
+		if (pool->entries.length >= UINT32_MAX) {
+			HbFeedback_Crash("HbMemory_Pool_Alloc", "Too many elements allocated, maximum 0x%X.", UINT32_MAX);
+		}
+		locator.entryIndex = (uint32_t) pool->entries.length;
+		HbMemory_Pool_Entry * entry = (HbMemory_Pool_Entry *) HbMemory_Array2L_Append(&pool->entries);
+		locator.revision = entry->locatorRevision = 0;
+		entry->nextFree = locator.entryIndex;
+		HbMemory_Array2L_Append(&pool->elementData);
+	}
+	return locator;
+}
+
+void HbMemory_Pool_Free(HbMemory_Pool * pool, HbMemory_Pool_Locator locator) {
+	HbMemory_Pool_Entry * entry = NULL;
+	if (locator.entryIndex < pool->entries.length) {
+		entry = (HbMemory_Pool_Entry *) HbMemory_Array2L_Get(&pool->entries, locator.entryIndex, NULL);
+		if (entry->nextFree != locator.entryIndex || entry->locatorRevision != locator.revision) {
+			entry = NULL;
+		}
+	}
+	if (entry == NULL) {
+		HbFeedback_Crash("HbMemory_Pool_Free", "Tried to free non-existent index %u.", locator.entryIndex);
+	}
+	entry->nextFree = pool->firstFree;
+	pool->firstFree = locator.entryIndex;
 }
 
 /*********************************

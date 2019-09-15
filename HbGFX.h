@@ -1,6 +1,9 @@
 #ifndef HbInclude_HbGFX
 #define HbInclude_HbGFX
 #include "HbGPU.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /***************************************************
  * Screen tile association with 2 clusters per tile
@@ -25,4 +28,7 @@ void HbGFX_Tile_Shutdown();
 void HbGFX_Tile_GetDepthBounds(HbGPU_CmdList * cmdList, uint32_t perSampleDepthsHandle, HbGPU_Image_Info const * perSampleDepthsInfo,
 		uint32_t tileDepthBoundsHandles, float const z0AndZUnprojectScale[2]);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

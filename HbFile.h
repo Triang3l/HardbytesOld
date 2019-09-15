@@ -4,6 +4,9 @@
 #if HbPlatform_OS_Windows
 #include <Windows.h>
 #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct HbFile_Mapping {
 	void * data;
@@ -17,4 +20,7 @@ typedef struct HbFile_Mapping {
 HbBool HbFile_Mapping_InitRead(HbFile_Mapping * mapping, HbTextU8 const * path, HbBool max4GB);
 void HbFile_Mapping_Destroy(HbFile_Mapping * mapping);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -3,6 +3,9 @@
 #include "HbGPU.h"
 #if HbGPU_Implementation_D3D
 #include "HbText.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern IDXGIFactory2 * HbGPUi_D3D_DXGIFactory;
 
@@ -62,5 +65,8 @@ HbForceInline D3D12_GPU_DESCRIPTOR_HANDLE HbGPUi_D3D_SamplerStore_GetGPUHandle(H
 	return handle;
 }
 
+#ifdef __cplusplus
+}
+#endif
 #endif
 #endif

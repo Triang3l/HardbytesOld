@@ -4,6 +4,9 @@
 #if HbPlatform_OS_Windows
 #include <intrin.h>
 #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef _DEBUG
 #define HbFeedback_DebugBuild 1
@@ -38,4 +41,7 @@ void HbFeedback_AssertCrash(char const * functionName, char const * messageForma
 #define HbFeedback_Assert(condition, functionName, messageFormat, ...) {}
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 #endif

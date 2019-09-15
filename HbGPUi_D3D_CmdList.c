@@ -23,7 +23,7 @@ HbBool HbGPU_CmdList_Init(HbGPU_CmdList * cmdList, HbTextU8 const * name, HbGPU_
 	HbGPUi_D3D_SetSubObjectName(cmdList->d3dCommandAllocator,
 			cmdList->d3dCommandAllocator->lpVtbl->SetName, name, "d3dCommandAllocator");
 	if (FAILED(ID3D12Device_CreateCommandList(device->d3dDevice, 0, type, cmdList->d3dCommandAllocator,
-			HbNull, &IID_ID3D12CommandList, &cmdList->d3dSubmissionCommandList))) {
+			NULL, &IID_ID3D12CommandList, &cmdList->d3dSubmissionCommandList))) {
 		ID3D12CommandAllocator_Release(cmdList->d3dCommandAllocator);
 		return HbFalse;
 	}
@@ -47,15 +47,15 @@ void HbGPU_CmdList_Destroy(HbGPU_CmdList * cmdList) {
 
 void HbGPU_CmdList_Begin(HbGPU_CmdList * cmdList, HbGPU_HandleStore * handleStore, HbGPU_SamplerStore * samplerStore) {
 	ID3D12CommandAllocator_Reset(cmdList->d3dCommandAllocator);
-	ID3D12GraphicsCommandList_Reset(cmdList->d3dGraphicsCommandList, cmdList->d3dCommandAllocator, HbNull);
+	ID3D12GraphicsCommandList_Reset(cmdList->d3dGraphicsCommandList, cmdList->d3dCommandAllocator, NULL);
 	cmdList->d3dCurrentHandleStore = handleStore;
 	cmdList->d3dCurrentSamplerStore = samplerStore;
 	ID3D12DescriptorHeap * descriptorHeaps[2];
 	uint32_t descriptorHeapCount = 0;
-	if (handleStore != HbNull) {
+	if (handleStore != NULL) {
 		descriptorHeaps[descriptorHeapCount++] = handleStore->d3dHeap;
 	}
-	if (samplerStore != HbNull) {
+	if (samplerStore != NULL) {
 		descriptorHeaps[descriptorHeapCount++] = samplerStore->d3dHeap;
 	}
 	if (descriptorHeapCount != 0) {
@@ -81,7 +81,7 @@ void HbGPU_CmdList_Submit(uint32_t cmdListCount, HbGPU_CmdList * const * cmdList
 	}
 	// In case there are command lists for different queues, generate arrays of lists to execute on each.
 	ID3D12CommandList * * d3dCommandLists = HbStackAlloc(
-			HbGPU_CmdQueue_QueueCount * cmdListCount * sizeof(ID3D12CommandList *));
+			ID3D12CommandList *, HbGPU_CmdQueue_QueueCount * cmdListCount);
 	uint32_t queueCmdListCounts[HbGPU_CmdQueue_QueueCount] = { 0 };
 	for (uint32_t cmdListIndex = 0; cmdListIndex < cmdListCount; ++cmdListIndex) {
 		HbGPU_CmdList * cmdList = cmdLists[cmdListIndex];
@@ -103,10 +103,10 @@ void HbGPU_CmdList_SetBindingStores(HbGPU_CmdList * cmdList, HbGPU_HandleStore *
 	cmdList->d3dCurrentSamplerStore = samplerStore;
 	ID3D12DescriptorHeap * descriptorHeaps[2];
 	uint32_t descriptorHeapCount = 0;
-	if (handleStore != HbNull) {
+	if (handleStore != NULL) {
 		descriptorHeaps[descriptorHeapCount++] = handleStore->d3dHeap;
 	}
-	if (samplerStore != HbNull) {
+	if (samplerStore != NULL) {
 		descriptorHeaps[descriptorHeapCount++] = samplerStore->d3dHeap;
 	}
 	ID3D12GraphicsCommandList_SetDescriptorHeaps(cmdList->d3dGraphicsCommandList, descriptorHeapCount, descriptorHeaps);
@@ -116,7 +116,7 @@ void HbGPU_CmdList_Barrier(HbGPU_CmdList * cmdList, uint32_t count, HbGPU_CmdLis
 	if (count == 0) {
 		return;
 	}
-	D3D12_RESOURCE_BARRIER * d3dBarriers = HbStackAlloc(count * sizeof(D3D12_RESOURCE_BARRIER));
+	D3D12_RESOURCE_BARRIER * d3dBarriers = HbStackAlloc(D3D12_RESOURCE_BARRIER, count);
 	uint32_t d3dBarrierCount = 0; // Can be smaller, for instance, in case old state == new state.
 	for (uint32_t barrierIndex = 0; barrierIndex < count; ++barrierIndex) {
 		HbGPU_CmdList_Barrier_Info const * info = &infos[barrierIndex];
@@ -230,7 +230,7 @@ void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const
 		colorRTDescriptors[rtIndex] = passInfo->colorRTs[rtIndex].d3dHandle;
 	}
 	ID3D12GraphicsCommandList_OMSetRenderTargets(d3dCommandList, passInfo->colorRTCount, colorRTDescriptors, FALSE,
-			passInfo->hasDepthStencilRT ? &passInfo->depthStencilRT.d3dHandle : HbNull);
+			passInfo->hasDepthStencilRT ? &passInfo->depthStencilRT.d3dHandle : NULL);
 	D3D12_DISCARD_REGION discardRegion = { .NumSubresources = 1 };
 	for (uint32_t rtIndex = 0; rtIndex < passInfo->colorRTCount; ++rtIndex) {
 		HbGPU_RTReference const * colorRT = &passInfo->colorRTs[rtIndex];
@@ -241,7 +241,7 @@ void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const
 			ID3D12GraphicsCommandList_DiscardResource(d3dCommandList, colorRT->d3dImageRef.image->d3dResource, &discardRegion);
 			break;
 		case HbGPU_DrawPass_BeginAction_Clear:
-			ID3D12GraphicsCommandList_ClearRenderTargetView(d3dCommandList, colorRT->d3dHandle, colorActions->clearValue.color, 0, HbNull);
+			ID3D12GraphicsCommandList_ClearRenderTargetView(d3dCommandList, colorRT->d3dHandle, colorActions->clearValue.color, 0, NULL);
 			break;
 		default:
 			break;
@@ -280,7 +280,7 @@ void HbGPU_CmdList_Draw_Begin(HbGPU_CmdList * cmdList, HbGPU_DrawPass_Info const
 		}
 		if (depthStencilClearFlags != 0) {
 			ID3D12GraphicsCommandList_ClearDepthStencilView(d3dCommandList, passInfo->depthStencilRT.d3dHandle, depthStencilClearFlags,
-					passInfo->depthActions.clearValue.depthStencil.depth, passInfo->stencilActions.clearValue.depthStencil.stencil, 0, HbNull);
+					passInfo->depthActions.clearValue.depthStencil.depth, passInfo->stencilActions.clearValue.depthStencil.stencil, 0, NULL);
 		}
 	}
 }
@@ -480,7 +480,7 @@ void HbGPU_CmdList_Copy_ImageXImage(HbGPU_CmdList * cmdList,
 	};
 	if (target->info.samplesLog2 > 0) {
 		// Only full-image copies with MSAA.
-		ID3D12GraphicsCommandList_CopyTextureRegion(cmdList->d3dGraphicsCommandList, &targetLocation, 0, 0, 0, &sourceLocation, HbNull);
+		ID3D12GraphicsCommandList_CopyTextureRegion(cmdList->d3dGraphicsCommandList, &targetLocation, 0, 0, 0, &sourceLocation, NULL);
 	} else {
 		D3D12_BOX sourceBox;
 		sourceBox.left = sourceX;

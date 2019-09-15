@@ -41,9 +41,9 @@ size_t HbTextA_Copy(char * target, size_t targetBufferSize, char const * source)
 }
 
 size_t HbTextA_FormatV(char * target, size_t targetBufferSize, char const * format, va_list arguments) {
-	if (target == HbNull || targetBufferSize == 0) {
+	if (target == NULL || targetBufferSize == 0) {
 		// Normalize both arguments.
-		target = HbNull;
+		target = NULL;
 		targetBufferSize = 0;
 	}
 	int length = vsnprintf(target, targetBufferSize, format, arguments);

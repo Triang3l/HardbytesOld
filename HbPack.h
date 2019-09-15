@@ -1,6 +1,9 @@
 #ifndef HbInclude_HbPack
 #define HbInclude_HbPack
 #include "HbCommon.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Custom package format for assets of different types.
@@ -63,4 +66,7 @@ HbForceInline HbPack_DirectoryEntry const * HbPack_GetDirectory(HbPack_Info cons
 uint32_t HbPack_FindFirstPrefixed(HbPack_Info const * info, char const * prefix);
 HbPack_DirectoryEntry const * HbPack_Find(HbPack_Info const * info, char const * path);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

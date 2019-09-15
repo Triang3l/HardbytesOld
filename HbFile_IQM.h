@@ -1,6 +1,9 @@
 #ifndef HbInclude_HbFile_IQM
 #define HbInclude_HbFile_IQM
 #include "HbCommon.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern char const HbFile_IQM_Magic[16];
 #define HbFile_IQM_Version 2
@@ -108,4 +111,7 @@ typedef struct HbFile_IQM_Extension {
 	uint32_t nextOffset;
 } HbFile_IQM_Extension;
 
+#ifdef __cplusplus
+}
+#endif
 #endif

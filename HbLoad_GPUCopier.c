@@ -7,23 +7,23 @@ HbBool HbLoad_GPUCopier_Init(HbLoad_GPUCopier * copier, HbTextU8 * name, HbGPU_D
 	}
 
 	size_t nameLength = 0;
-	HbTextU8 * submissionFieldName = HbNull;
+	HbTextU8 * submissionFieldName = NULL;
 	size_t submissionFieldNameSize = 0;
 	size_t submissionFieldNameSuffixOffset = 0;
-	if (name != HbNull) {
+	if (name != NULL) {
 		nameLength = HbTextU8_LengthElems(name);
 		copier->name = HbMemory_TryAlloc(tag, nameLength + 1, HbFalse);
-		if (copier->name != HbNull) {
+		if (copier->name != NULL) {
 			HbTextA_Copy(copier->name, nameLength + 1, name);
 		}
 		char const submissionFieldNamePrefix[] = "";
 		// Used fields: fence (length 5), cmdList (7), buffer (6).
 		submissionFieldNameSize = nameLength + HbText_Decimal_MaxLengthU32 + sizeof(".submissions[].cmdList");
-		submissionFieldName = HbStackAlloc(submissionFieldNameSize);
+		submissionFieldName = HbStackAlloc(HbTextU8, submissionFieldNameSize);
 		submissionFieldNameSuffixOffset = HbTextA_Copy(submissionFieldName, submissionFieldNameSize, name);
 		submissionFieldNameSuffixOffset += HbTextA_CopyInto(submissionFieldName, submissionFieldNameSize, submissionFieldNameSuffixOffset, ".submissions[");
 	} else {
-		copier->name = HbNull;
+		copier->name = NULL;
 	}
 
 	copier->device = device;
@@ -32,9 +32,9 @@ HbBool HbLoad_GPUCopier_Init(HbLoad_GPUCopier * copier, HbTextU8 * name, HbGPU_D
 		HbMemory_Free(copier->name);
 		return HbFalse;
 	}
-	copier->queueFree = HbNull;
+	copier->queueFree = NULL;
 	copier->submissions = HbMemory_TryAlloc(tag, submissionCount * sizeof(HbLoad_GPUCopier_Submission), HbFalse);
-	if (copier->submissions == HbNull) {
+	if (copier->submissions == NULL) {
 		HbParallel_Mutex_Destroy(&copier->queueMutex);
 		HbMemory_Free(copier->name);
 		return HbFalse;
@@ -46,14 +46,14 @@ HbBool HbLoad_GPUCopier_Init(HbLoad_GPUCopier * copier, HbTextU8 * name, HbGPU_D
 		submission->index = submissionIndex;
 		submission->largeBufferUsed = HbFalse;
 		HbBool submissionInitialized = HbTrue;
-		if (submissionFieldName != HbNull) {
+		if (submissionFieldName != NULL) {
 			HbTextA_Format(submissionFieldName + submissionFieldNameSuffixOffset, submissionFieldNameSize - submissionFieldNameSuffixOffset,
 					"%u].fence", submissionIndex);
 		}
 		if (!HbGPU_Fence_Init(&submission->fence, submissionFieldName, device, HbGPU_CmdQueue_Copy)) {
 			submissionInitialized = HbFalse;
 		} else {
-			if (submissionFieldName != HbNull) {
+			if (submissionFieldName != NULL) {
 				HbTextA_Format(submissionFieldName + submissionFieldNameSuffixOffset, submissionFieldNameSize - submissionFieldNameSuffixOffset,
 						"%u].cmdList", submissionIndex);
 			}
@@ -69,7 +69,7 @@ HbBool HbLoad_GPUCopier_Init(HbLoad_GPUCopier * copier, HbTextU8 * name, HbGPU_D
 					submissionInitialized = HbFalse;
 				}
 				submission->bufferMapping = HbGPU_Buffer_Map(&submission->buffer, 0, 0);
-				if (submission->bufferMapping == HbNull) {
+				if (submission->bufferMapping == NULL) {
 					HbGPU_Buffer_Destroy(&submission->buffer);
 					HbGPU_CmdList_Destroy(&submission->cmdList);
 					HbGPU_Fence_Destroy(&submission->fence);
@@ -93,7 +93,7 @@ HbBool HbLoad_GPUCopier_Init(HbLoad_GPUCopier * copier, HbTextU8 * name, HbGPU_D
 		submission->nextInQueue = copier->queueFree;
 		copier->queueFree = submission;
 	}
-	copier->queueSubmittedStart = copier->queueSubmittedEnd = HbNull;
+	copier->queueSubmittedStart = copier->queueSubmittedEnd = NULL;
 
 	return HbTrue;
 }
@@ -106,7 +106,7 @@ static void HbLoad_GPUCopier_DestroyLargeBuffer(HbLoad_GPUCopier_Submission * su
 }
 
 void HbLoad_GPUCopier_Destroy(HbLoad_GPUCopier * copier) {
-	while (HbLoad_GPUCopier_HandleCompletion(copier, HbNull, HbTrue)) {}
+	while (HbLoad_GPUCopier_HandleCompletion(copier, NULL, HbTrue)) {}
 	for (uint32_t submissionIndex = 0; submissionIndex < copier->submissionCount; ++submissionIndex) {
 		HbLoad_GPUCopier_Submission * submission = &copier->submissions[copier->submissionCount - 1 - submissionIndex];
 		HbLoad_GPUCopier_DestroyLargeBuffer(submission);
@@ -124,7 +124,7 @@ HbBool HbLoad_GPUCopier_HandleCompletion(HbLoad_GPUCopier * copier, void * * req
 	HbParallel_Mutex_Lock(&copier->queueMutex);
 
 	HbLoad_GPUCopier_Submission * submission = copier->queueSubmittedStart;
-	if (submission == HbNull) {
+	if (submission == NULL) {
 		HbParallel_Mutex_Unlock(&copier->queueMutex);
 		return HbFalse;
 	}
@@ -133,8 +133,8 @@ HbBool HbLoad_GPUCopier_HandleCompletion(HbLoad_GPUCopier * copier, void * * req
 		if (blockUntilComplete) {
 			// Still remove it from the queue right now to release the mutex so waiting won't block other threads.
 			copier->queueSubmittedStart = submission->nextInQueue;
-			if (copier->queueSubmittedStart == HbNull) {
-				copier->queueSubmittedEnd = HbNull;
+			if (copier->queueSubmittedStart == NULL) {
+				copier->queueSubmittedEnd = NULL;
 			}
 			HbParallel_Mutex_Unlock(&copier->queueMutex);
 			HbGPU_Fence_Await(&submission->fence);
@@ -145,13 +145,13 @@ HbBool HbLoad_GPUCopier_HandleCompletion(HbLoad_GPUCopier * copier, void * * req
 		}
 	}
 	copier->queueSubmittedStart = submission->nextInQueue;
-	if (copier->queueSubmittedStart == HbNull) {
-		copier->queueSubmittedEnd = HbNull;
+	if (copier->queueSubmittedStart == NULL) {
+		copier->queueSubmittedEnd = NULL;
 	}
 
 	// Do post-load actions that depend on the values in the submission structure before moving the submission to the free queue.
 	HbLoad_GPUCopier_DestroyLargeBuffer(submission);
-	if (requestDataOut != HbNull) {
+	if (requestDataOut != NULL) {
 		*requestDataOut = submission->requestData;
 	}
 
@@ -163,16 +163,25 @@ HbBool HbLoad_GPUCopier_HandleCompletion(HbLoad_GPUCopier * copier, void * * req
 	return HbTrue;
 }
 
+void HbLoad_GPUCopier_AwaitFirstComplete(HbLoad_GPUCopier * copier) {
+	HbParallel_Mutex_Lock(&copier->queueMutex);
+	HbLoad_GPUCopier_Submission * submission = copier->queueSubmittedStart;
+	HbParallel_Mutex_Unlock(&copier->queueMutex);
+	if (submission != NULL) {
+		HbGPU_Fence_Await(&submission->fence);
+	}
+}
+
 HbLoad_GPUCopier_Submission * HbLoad_GPUCopier_Request(HbLoad_GPUCopier * copier, void * requestData) {
 	HbParallel_Mutex_Lock(&copier->queueMutex);
 	HbLoad_GPUCopier_Submission * submission = copier->queueFree;
-	if (submission != HbNull) {
+	if (submission != NULL) {
 		copier->queueFree = submission->nextInQueue;
 		submission->requestData = requestData;
 	}
 	HbParallel_Mutex_Unlock(&copier->queueMutex);
-	if (submission != HbNull) {
-		HbGPU_CmdList_Begin(&submission->cmdList, HbNull, HbNull);
+	if (submission != NULL) {
+		HbGPU_CmdList_Begin(&submission->cmdList, NULL, NULL);
 	}
 	return submission;
 }
@@ -184,19 +193,19 @@ void * HbLoad_GPUCopier_GetBuffer(HbLoad_GPUCopier_Submission * submission, uint
 		*bufferOut = &submission->buffer;
 		return submission->bufferMapping;
 	}
-	HbTextU8 * largeBufferName = HbNull;
+	HbTextU8 * largeBufferName = NULL;
 	HbTextU8 const * copierName = submission->copier->name;
-	if (copierName != HbNull) {
+	if (copierName != NULL) {
 		size_t largeBufferNameSize = HbTextU8_LengthElems(copierName) + HbText_Decimal_MaxLengthU32 + sizeof(".submissions[].largeBuffer");
-		largeBufferName = HbStackAlloc(largeBufferNameSize);
+		largeBufferName = HbStackAlloc(HbTextU8, largeBufferNameSize);
 		HbTextA_Format(largeBufferName, largeBufferNameSize, "%s.submissions[%u].largeBuffer", copierName, submission->index);
 	}
 	if (!HbGPU_Buffer_Init(&submission->largeBuffer, largeBufferName, submission->copier->device,
 			HbGPU_Buffer_Access_CPUToGPU, size, HbFalse, HbGPU_Buffer_Usage_CPUToGPU)) {
-		return HbNull;
+		return NULL;
 	}
 	void * mapping = HbGPU_Buffer_Map(&submission->largeBuffer, 0, 0);
-	if (mapping != HbNull) {
+	if (mapping != NULL) {
 		submission->largeBufferUsed = HbTrue;
 		*bufferOut = &submission->largeBuffer;
 	} else {
@@ -212,8 +221,8 @@ void HbLoad_GPUCopier_Submit(HbLoad_GPUCopier_Submission * submission) {
 	HbGPU_CmdList * cmdList = &submission->cmdList;
 	HbGPU_CmdList_Submit(1, &cmdList);
 	HbGPU_Fence_Enqueue(&submission->fence);
-	submission->nextInQueue = HbNull;
-	if (copier->queueSubmittedEnd != HbNull) {
+	submission->nextInQueue = NULL;
+	if (copier->queueSubmittedEnd != NULL) {
 		copier->queueSubmittedEnd->nextInQueue = submission;
 	} else {
 		copier->queueSubmittedStart = submission;

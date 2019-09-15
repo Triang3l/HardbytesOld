@@ -1,6 +1,12 @@
 #ifndef HbInclude_HbMath
 #define HbInclude_HbMath
 #include "HbCommon.h"
+#if HbPlatform_CPU_x86
+#include <pmmintrin.h>
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Some portions are taken from DirectXMath.
  *
@@ -62,7 +68,6 @@ extern HbMath_VecAligned float const HbMath_F32x4_Cos_Constants1[4]; // C1, C2, 
 extern HbMath_VecAligned float const HbMath_F32x4_SinCos_Constants2[4]; // Sin C5, Cos C5, 1 (C6), -1.
 
 #if HbPlatform_CPU_x86
-#include <pmmintrin.h>
 
 /******************
  * SSE3 intrinsics
@@ -518,4 +523,7 @@ HbForceInline HbMath_F32x4 HbMath_F32x4_Quat_FromEulerHalf(HbMath_F32x4 halfYawP
 	#endif
 }
 
+#ifdef __cplusplus
+}
+#endif
 #endif

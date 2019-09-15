@@ -1,6 +1,9 @@
 #ifndef HbInclude_HbFile_KV
 #define HbInclude_HbFile_KV
 #include "HbText.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // Source Engine text key/value pairs, in UTF-8 or UTF-16 format (determined by the BOM).
 
@@ -66,4 +69,7 @@ typedef enum HbFile_KV_Read_TokenType {
 } HbFile_KV_Read_TokenType;
 HbFile_KV_Read_TokenType HbFile_KV_Read_Parse(HbFile_KV_Read_Context * context);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

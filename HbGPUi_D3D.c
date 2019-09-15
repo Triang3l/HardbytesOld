@@ -9,27 +9,27 @@
  ****************/
 
 void HbGPUi_D3D_SetObjectName(void * object, HbGPUi_D3D_ObjectNameSetter setter, HbTextU8 const * name) {
-	if (name == HbNull || name[0] == '\0') {
+	if (name == NULL || name[0] == '\0') {
 		return;
 	}
 	size_t nameU16Size = HbTextU8_LengthU16Elems(name) + 1;
-	HbTextU16 * nameU16 = HbStackAlloc(nameU16Size * sizeof(HbTextU16));
+	HbTextU16 * nameU16 = HbStackAlloc(HbTextU16, nameU16Size);
 	HbTextU16_FromU8(nameU16, nameU16Size, name, HbFalse);
 	setter(object, (WCHAR const *) nameU16);
 }
 
 void HbGPUi_D3D_SetSubObjectName(void * object, HbGPUi_D3D_ObjectNameSetter setter,
 		HbTextU8 const * parentName, HbTextU8 const * name) {
-	if (parentName == HbNull || parentName[0] == '\0') {
+	if (parentName == NULL || parentName[0] == '\0') {
 		return;
 	}
-	if (name == HbNull || name[0] == '\0') {
+	if (name == NULL || name[0] == '\0') {
 		HbGPUi_D3D_SetObjectName(object, setter, parentName);
 		return;
 	}
 	size_t parentNameU16LengthElems = HbTextU8_LengthU16Elems(parentName);
 	size_t fullNameU16Size = parentNameU16LengthElems + 1 + HbTextU8_LengthU16Elems(name) + 1;
-	HbTextU16 * fullNameU16 = HbStackAlloc(fullNameU16Size * sizeof(HbTextU16));
+	HbTextU16 * fullNameU16 = HbStackAlloc(HbTextU16, fullNameU16Size);
 	HbTextU16_FromU8(fullNameU16, fullNameU16Size, parentName, HbFalse);
 	fullNameU16[parentNameU16LengthElems] = '.';
 	HbTextU16_FromU8(fullNameU16 + parentNameU16LengthElems + 1,
@@ -38,27 +38,27 @@ void HbGPUi_D3D_SetSubObjectName(void * object, HbGPUi_D3D_ObjectNameSetter sett
 }
 
 void HbGPUi_D3D_SetDXGIObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSetter setter, HbTextU8 const * name) {
-	if (name == HbNull || name[0] == '\0') {
+	if (name == NULL || name[0] == '\0') {
 		return;
 	}
 	size_t nameU16LengthElems = HbTextU8_LengthU16Elems(name) + 1;
-	HbTextU16 * nameU16 = HbStackAlloc((nameU16LengthElems + 1) * sizeof(HbTextU16));
+	HbTextU16 * nameU16 = HbStackAlloc(HbTextU16, nameU16LengthElems + 1);
 	HbTextU16_FromU8(nameU16, nameU16LengthElems + 1, name, HbFalse);
 	setter(object, &WKPDID_D3DDebugObjectNameW, (UINT) (nameU16LengthElems * sizeof(HbTextU16)), nameU16);
 }
 
 void HbGPUi_D3D_SetDXGISubObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSetter setter,
 		HbTextU8 const * parentName, HbTextU8 const * name) {
-	if (parentName == HbNull || parentName[0] == '\0') {
+	if (parentName == NULL || parentName[0] == '\0') {
 		return;
 	}
-	if (name == HbNull || name[0] == '\0') {
+	if (name == NULL || name[0] == '\0') {
 		HbGPUi_D3D_SetDXGIObjectName(object, setter, parentName);
 		return;
 	}
 	size_t parentNameU16LengthElems = HbTextU8_LengthU16Elems(parentName);
 	size_t fullNameU16LengthElems = parentNameU16LengthElems + 1 + HbTextU8_LengthU16Elems(name) + 1;
-	HbTextU16 * fullNameU16 = HbStackAlloc((fullNameU16LengthElems + 1) * sizeof(HbTextU16));
+	HbTextU16 * fullNameU16 = HbStackAlloc(HbTextU16, fullNameU16LengthElems + 1);
 	HbTextU16_FromU8(fullNameU16, fullNameU16LengthElems + 1, parentName, HbFalse);
 	fullNameU16[parentNameU16LengthElems] = '.';
 	HbTextU16_FromU8(fullNameU16 + parentNameU16LengthElems + 1,
@@ -71,7 +71,7 @@ void HbGPUi_D3D_SetDXGISubObjectName(void * object, HbGPUi_D3D_DXGIPrivateDataSe
  ********************/
 
 static HbBool HbGPUi_D3D_Debug = HbFalse;
-IDXGIFactory2 * HbGPUi_D3D_DXGIFactory = HbNull;
+IDXGIFactory2 * HbGPUi_D3D_DXGIFactory = NULL;
 
 HbBool HbGPU_Init(HbBool debug) {
 	if (debug) {
@@ -95,17 +95,17 @@ HbBool HbGPU_Init(HbBool debug) {
 }
 
 void HbGPU_Shutdown() {
-	if (HbGPUi_D3D_DXGIFactory != HbNull) {
+	if (HbGPUi_D3D_DXGIFactory != NULL) {
 		IDXGIFactory2_Release(HbGPUi_D3D_DXGIFactory);
-		HbGPUi_D3D_DXGIFactory = HbNull;
+		HbGPUi_D3D_DXGIFactory = NULL;
 	}
 	if (HbGPUi_D3D_Debug) {
 		// Report DXGI and D3D object leaks.
 		HMODULE debugLibrary = LoadLibraryA("DXGIDebug.dll");
-		if (debugLibrary != HbNull) {
+		if (debugLibrary != NULL) {
 			HRESULT (WINAPI * getDebugInterface)(REFIID riid, void * * debug) =
 					(void *) GetProcAddress(debugLibrary, "DXGIGetDebugInterface");
-			if (getDebugInterface != HbNull) {
+			if (getDebugInterface != NULL) {
 				IDXGIDebug * debugInterface;
 				if (SUCCEEDED(getDebugInterface(&IID_IDXGIDebug, &debugInterface))) {
 					IDXGIDebug_ReportLiveObjects(debugInterface, DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
@@ -128,10 +128,10 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 	device->d3dMemoryTag = HbMemory_Tag_Create("HbGPU_Device (D3D)");
 
 	// Make the index reference only supported adapters.
-	IDXGIAdapter1 * adapter = HbNull;
+	IDXGIAdapter1 * adapter = NULL;
 	uint32_t adapterIndex = 0, supportedAdapterIndex = 0;
 	while (IDXGIFactory2_EnumAdapters1(HbGPUi_D3D_DXGIFactory, adapterIndex, &adapter) == S_OK) {
-		if (SUCCEEDED(D3D12CreateDevice((IUnknown *) adapter, D3D_FEATURE_LEVEL_11_0, &IID_ID3D12Device, HbNull))) {
+		if (SUCCEEDED(D3D12CreateDevice((IUnknown *) adapter, D3D_FEATURE_LEVEL_11_0, &IID_ID3D12Device, NULL))) {
 			if (supportedAdapterIndex == deviceIndex) {
 				break;
 			}
@@ -139,9 +139,9 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 		}
 		++adapterIndex;
 		IDXGIAdapter1_Release(adapter);
-		adapter = HbNull;
+		adapter = NULL;
 	}
-	if (adapter == HbNull) {
+	if (adapter == NULL) {
 		HbMemory_Tag_Destroy(device->d3dMemoryTag, HbFalse);
 		return HbFalse;
 	}
@@ -210,7 +210,7 @@ HbBool HbGPU_Device_Init(HbGPU_Device * device, HbTextU8 const * name, uint32_t 
 void HbGPU_Device_Shutdown(HbGPU_Device * device) {
 	for (uint32_t queueIndex = 0; queueIndex < HbGPU_CmdQueue_QueueCount; ++queueIndex) {
 		ID3D12CommandQueue * queue = device->d3dCommandQueues[queueIndex];
-		if (queue != HbNull) {
+		if (queue != NULL) {
 			ID3D12CommandQueue_Release(queue);
 		}
 	}
@@ -227,8 +227,8 @@ HbBool HbGPU_Fence_Init(HbGPU_Fence * fence, HbTextU8 const * name, HbGPU_Device
 	fence->device = device;
 	fence->queue = queue;
 	fence->d3dAwaitedValue = 0;
-	fence->d3dCompletionEvent = CreateEvent(HbNull, FALSE, FALSE, HbNull);
-	if (fence->d3dCompletionEvent == HbNull) {
+	fence->d3dCompletionEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	if (fence->d3dCompletionEvent == NULL) {
 		return HbFalse;
 	}
 	if (FAILED(ID3D12Device_CreateFence(device->d3dDevice, fence->d3dAwaitedValue, D3D12_FENCE_FLAG_NONE,
@@ -332,7 +332,7 @@ HbBool HbGPU_Buffer_Init(HbGPU_Buffer * buffer, HbTextU8 const * name, HbGPU_Dev
 		.Flags = shaderEditable ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE,
 	};
 	if (FAILED(ID3D12Device_CreateCommittedResource(device->d3dDevice, &heapProperties, D3D12_HEAP_FLAG_NONE,
-			&resourceDesc, HbGPUi_D3D_Buffer_Usage_ToStates(initialUsage), HbNull, &IID_ID3D12Resource, &buffer->d3dResource))) {
+			&resourceDesc, HbGPUi_D3D_Buffer_Usage_ToStates(initialUsage), NULL, &IID_ID3D12Resource, &buffer->d3dResource))) {
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetObjectName(buffer->d3dResource, buffer->d3dResource->lpVtbl->SetName, name);
@@ -351,7 +351,7 @@ void * HbGPU_Buffer_Map(HbGPU_Buffer * buffer, uint32_t readStart, uint32_t read
 	D3D12_RANGE readRange = { .Begin = readStart, .End = readStart + readLength };
 	void * mapping;
 	if (FAILED(ID3D12Resource_Map(buffer->d3dResource, 0, &readRange, &mapping))) {
-		return HbNull;
+		return NULL;
 	}
 	return mapping;
 }
@@ -408,7 +408,7 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTyped(HbGPU_Image_Format format) {
 		[HbGPU_Image_Format_16_16_16_16_RGBA_UInt] = DXGI_FORMAT_R16G16B16A16_UINT,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SNorm] = DXGI_FORMAT_R16G16B16A16_SNORM,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SInt] = DXGI_FORMAT_R16G16B16A16_SINT,
-		[HbGPU_Image_Format_16_16_16_16_RGBA_Float] = DXGI_FORMAT_R16G16B16A16_FLOAT,
+		[HbGPU_Image_Format_16_16_16_16_RGBA_SFloat] = DXGI_FORMAT_R16G16B16A16_FLOAT,
 		[HbGPU_Image_Format_32_R_UInt] = DXGI_FORMAT_R32_UINT,
 		[HbGPU_Image_Format_32_R_SInt] = DXGI_FORMAT_R32_SINT,
 		[HbGPU_Image_Format_32_R_SFloat] = DXGI_FORMAT_R32_FLOAT,
@@ -476,7 +476,7 @@ DXGI_FORMAT HbGPUi_D3D_Image_Format_ToTypeless(HbGPU_Image_Format format) {
 		[HbGPU_Image_Format_16_16_16_16_RGBA_UInt] = DXGI_FORMAT_R16G16B16A16_TYPELESS,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SNorm] = DXGI_FORMAT_R16G16B16A16_TYPELESS,
 		[HbGPU_Image_Format_16_16_16_16_RGBA_SInt] = DXGI_FORMAT_R16G16B16A16_TYPELESS,
-		[HbGPU_Image_Format_16_16_16_16_RGBA_Float] = DXGI_FORMAT_R16G16B16A16_TYPELESS,
+		[HbGPU_Image_Format_16_16_16_16_RGBA_SFloat] = DXGI_FORMAT_R16G16B16A16_TYPELESS,
 		[HbGPU_Image_Format_32_R_UInt] = DXGI_FORMAT_R32_TYPELESS,
 		[HbGPU_Image_Format_32_R_SInt] = DXGI_FORMAT_R32_TYPELESS,
 		[HbGPU_Image_Format_32_R_SFloat] = DXGI_FORMAT_R32_TYPELESS,
@@ -617,7 +617,7 @@ HbBool HbGPU_Image_InitWithValidInfo(HbGPU_Image * image, HbTextU8 const * name,
 	D3D12_RESOURCE_DESC resourceDesc;
 	HbGPUi_D3D_Image_Info_ToResourceDesc(&resourceDesc, &image->info);
 	D3D12_CLEAR_VALUE d3dOptimizedClearValue;
-	if (optimalClearValue != HbNull) {
+	if (optimalClearValue != NULL) {
 		// In case the resource description has a typeless format.
 		d3dOptimizedClearValue.Format = HbGPUi_D3D_Image_Format_ToTyped(image->info.format);
 		if (HbGPU_Image_Format_IsDepth(image->info.format)) {
@@ -632,7 +632,7 @@ HbBool HbGPU_Image_InitWithValidInfo(HbGPU_Image * image, HbTextU8 const * name,
 	}
 	if (FAILED(ID3D12Device_CreateCommittedResource(device->d3dDevice, &heapProperties, D3D12_HEAP_FLAG_NONE,
 			&resourceDesc, HbGPUi_D3D_Image_Usage_ToStates(initialUsage),
-			optimalClearValue != HbNull ? &d3dOptimizedClearValue : HbNull, &IID_ID3D12Resource, &image->d3dResource))) {
+			optimalClearValue != NULL ? &d3dOptimizedClearValue : NULL, &IID_ID3D12Resource, &image->d3dResource))) {
 		return HbFalse;
 	}
 	HbGPUi_D3D_SetObjectName(image->d3dResource, image->d3dResource->lpVtbl->SetName, name);
@@ -738,7 +738,7 @@ void HbGPU_HandleStore_SetEditBuffer(HbGPU_HandleStore * store, uint32_t index,
 		.Buffer.CounterOffsetInBytes = 0,
 		.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE,
 	};
-	ID3D12Device_CreateUnorderedAccessView(store->device->d3dDevice, buffer->d3dResource, HbNull, &uavDesc,
+	ID3D12Device_CreateUnorderedAccessView(store->device->d3dDevice, buffer->d3dResource, NULL, &uavDesc,
 			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
 }
 
@@ -870,7 +870,7 @@ void HbGPU_HandleStore_SetNullTexture(HbGPU_HandleStore * store, uint32_t index,
 	default:
 		return;
 	}
-	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, HbNull, &srvDesc,
+	ID3D12Device_CreateShaderResourceView(store->device->d3dDevice, NULL, &srvDesc,
 			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
 }
 
@@ -912,7 +912,7 @@ void HbGPU_HandleStore_SetEditImage(HbGPU_HandleStore * store, uint32_t index, H
 		uavDesc.Texture3D.WSize = image->info.depthOrLayers;
 		break;
 	}
-	ID3D12Device_CreateUnorderedAccessView(store->device->d3dDevice, image->d3dResource, HbNull, &uavDesc,
+	ID3D12Device_CreateUnorderedAccessView(store->device->d3dDevice, image->d3dResource, NULL, &uavDesc,
 			HbGPUi_D3D_HandleStore_GetCPUHandle(store, index));
 }
 
@@ -1044,7 +1044,7 @@ HbBool HbGPU_RTStore_Init(HbGPU_RTStore * store, HbTextU8 const * name, HbGPU_De
 			store->d3dHeap->lpVtbl->GetCPUDescriptorHandleForHeapStart)(
 					store->d3dHeap, &store->d3dHeapStart);
 	store->d3dImageRefs = HbMemory_TryAlloc(device->d3dMemoryTag, rtCount * sizeof(store->d3dImageRefs[0]), HbFalse);
-	if (store->d3dImageRefs == HbNull) {
+	if (store->d3dImageRefs == NULL) {
 		ID3D12DescriptorHeap_Release(store->d3dHeap);
 		return HbFalse;
 	}
@@ -1216,7 +1216,7 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 	IDXGISwapChain1 * swapChain1;
 	#if HbPlatform_OS_WindowsDesktop
 	if (FAILED(IDXGIFactory2_CreateSwapChainForHwnd(HbGPUi_D3D_DXGIFactory,
-			commandQueue, target.windowsHWnd, &swapChainDesc, HbNull, HbNull, &swapChain1))) {
+			commandQueue, target.windowsHWnd, &swapChainDesc, NULL, NULL, &swapChain1))) {
 		return HbFalse;
 	}
 	#else
@@ -1238,6 +1238,11 @@ HbBool HbGPU_SwapChain_Init(HbGPU_SwapChain * chain, HbTextU8 const * name, HbGP
 	if (FAILED(ID3D12Device_CreateDescriptorHeap(d3dDevice, &rtvHeapDesc, &IID_ID3D12DescriptorHeap, &chain->d3dRTVHeap))) {
 		IDXGISwapChain3_Release(chain->d3dSwapChain);
 		return HbFalse;
+	}
+	if (format == HbGPU_Image_Format_10_10_10_2_RGBA_UNorm) {
+		IDXGISwapChain3_SetColorSpace1(chain->d3dSwapChain, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+	} else if (format == HbGPU_Image_Format_16_16_16_16_RGBA_SFloat) {
+		IDXGISwapChain3_SetColorSpace1(chain->d3dSwapChain, DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
 	}
 	HbGPUi_D3D_SetSubObjectName(chain->d3dRTVHeap, chain->d3dRTVHeap->lpVtbl->SetName, name, "d3dRTVHeap");
 	((HbGPUi_D3D_ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart)
@@ -1350,7 +1355,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 			}
 			parameter->DescriptorTable.NumDescriptorRanges = rangeCount;
 			HbGPU_Binding_HandleRange const * ranges = binding->binding.handleRangeSet.ranges;
-			D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(rangeCount * sizeof(D3D12_DESCRIPTOR_RANGE));
+			D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(D3D12_DESCRIPTOR_RANGE, rangeCount);
 			parameter->DescriptorTable.pDescriptorRanges = d3dRanges;
 			for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
 				HbGPU_Binding_HandleRange const * range = &ranges[rangeIndex];
@@ -1384,7 +1389,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 					continue; // HbStackAlloc safety.
 				}
 				HbGPU_Binding_SamplerRange const * ranges = binding->binding.samplerRangeSet.ranges;
-				if (binding->binding.samplerRangeSet.staticSamplers != HbNull) {
+				if (binding->binding.samplerRangeSet.staticSamplers != NULL) {
 					for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
 						staticSamplerCount += ranges[rangeIndex].samplerCount;
 					}
@@ -1392,7 +1397,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 				}
 				parameter->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 				parameter->DescriptorTable.NumDescriptorRanges = rangeCount;
-				D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(rangeCount * sizeof(D3D12_DESCRIPTOR_RANGE));
+				D3D12_DESCRIPTOR_RANGE * d3dRanges = HbStackAlloc(D3D12_DESCRIPTOR_RANGE, rangeCount);
 				parameter->DescriptorTable.pDescriptorRanges = d3dRanges;
 				for (uint32_t rangeIndex = 0; rangeIndex < rangeCount; ++rangeIndex) {
 					HbGPU_Binding_SamplerRange const * range = &ranges[rangeIndex];
@@ -1430,7 +1435,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 		.Flags = useVertexAttributes ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE,
 	};
 	if (staticSamplerCount != 0) {
-		D3D12_STATIC_SAMPLER_DESC * d3dStaticSamplers = HbStackAlloc(staticSamplerCount * sizeof(D3D12_STATIC_SAMPLER_DESC));
+		D3D12_STATIC_SAMPLER_DESC * d3dStaticSamplers = HbStackAlloc(D3D12_STATIC_SAMPLER_DESC, staticSamplerCount);
 		rootSignatureDesc.pStaticSamplers = d3dStaticSamplers;
 		uint32_t d3dStaticSamplerIndex = 0;
 		for (uint32_t bindingIndex = 0; bindingIndex < bindingCount; ++bindingIndex) {
@@ -1440,7 +1445,7 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 			}
 			HbGPU_Sampler_Info const * bindingSamplers = binding->binding.samplerRangeSet.staticSamplers;
 			uint32_t rangeCount = binding->binding.samplerRangeSet.rangeCount;
-			if (bindingSamplers == HbNull || rangeCount == 0) {
+			if (bindingSamplers == NULL || rangeCount == 0) {
 				continue;
 			}
 			D3D12_SHADER_VISIBILITY bindingVisiblity = HbGPUi_D3D_Binding_GetShaderVisibility(binding->stages);
@@ -1458,9 +1463,9 @@ HbBool HbGPU_BindingLayout_Init(HbGPU_BindingLayout * layout, HbTextU8 const * n
 			}
 		}
 	}
-	ID3D10Blob * blob, * errorBlob = HbNull;
+	ID3D10Blob * blob, * errorBlob = NULL;
 	if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errorBlob))) {
-		if (errorBlob != HbNull) {
+		if (errorBlob != NULL) {
 			ID3D10Blob_Release(errorBlob);
 		}
 		return HbFalse;
@@ -1573,12 +1578,12 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 	}
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc = { 0 };
 	pipelineStateDesc.pRootSignature = info->bindingLayout->d3dRootSignature;
-	pipelineStateDesc.VS.pShaderBytecode = info->shaderVertex.dxbc;
-	pipelineStateDesc.VS.BytecodeLength = info->shaderVertex.dxbcSize;
-	pipelineStateDesc.PS.pShaderBytecode = info->shaderPixel.dxbc;
-	pipelineStateDesc.PS.BytecodeLength = info->shaderPixel.dxbcSize;
+	pipelineStateDesc.VS.pShaderBytecode = info->shaderVertex->dxbc;
+	pipelineStateDesc.VS.BytecodeLength = info->shaderVertex->dxbcSize;
+	pipelineStateDesc.PS.pShaderBytecode = info->shaderPixel->dxbc;
+	pipelineStateDesc.PS.BytecodeLength = info->shaderPixel->dxbcSize;
 	pipelineStateDesc.BlendState.AlphaToCoverageEnable = info->alphaToCoverage;
-	pipelineStateDesc.BlendState.IndependentBlendEnable = !info->rtsSameBlendAndWriteMasks;
+	pipelineStateDesc.BlendState.IndependentBlendEnable = !info->rtsSameBlendAndWriteMasks && info->rtCount > 1;
 	pipelineStateDesc.NumRenderTargets = info->rtCount;
 	for (uint32_t rtIndex = 0; rtIndex < info->rtCount; ++rtIndex) {
 		HbGPU_DrawConfig_RT const * rt = &info->rts[rtIndex];
@@ -1612,7 +1617,7 @@ HbBool HbGPU_DrawConfig_Init(HbGPU_DrawConfig * config, HbTextU8 const * name, H
 	pipelineStateDesc.RasterizerState.SlopeScaledDepthBias = info->depthBiasSlope;
 	pipelineStateDesc.RasterizerState.DepthClipEnable = !info->depthClamp;
 	HbGPU_DrawConfig_DepthStencilInfo const * depthStencil = info->depthStencil;
-	if (depthStencil != HbNull) {
+	if (depthStencil != NULL) {
 		if (depthStencil->depthTest) {
 			pipelineStateDesc.DepthStencilState.DepthEnable = TRUE;
 			pipelineStateDesc.DepthStencilState.DepthWriteMask =
@@ -1738,11 +1743,11 @@ void HbGPU_DrawConfig_Destroy(HbGPU_DrawConfig * config) {
  ****************************/
 
 HbBool HbGPU_ComputeConfig_Init(HbGPU_ComputeConfig * config, HbTextU8 const * name, HbGPU_Device * device,
-		HbGPU_ShaderReference shader, uint32_t const groupSize[3], HbGPU_BindingLayout * bindingLayout) {
+		HbGPU_ShaderReference const * shader, uint32_t const groupSize[3], HbGPU_BindingLayout * bindingLayout) {
 	D3D12_COMPUTE_PIPELINE_STATE_DESC pipelineStateDesc = {
 		.pRootSignature = bindingLayout->d3dRootSignature,
-		.CS.pShaderBytecode = shader.dxbc,
-		.CS.BytecodeLength = shader.dxbcSize,
+		.CS.pShaderBytecode = shader->dxbc,
+		.CS.BytecodeLength = shader->dxbcSize,
 	};
 	if (FAILED(ID3D12Device_CreateComputePipelineState(
 			device->d3dDevice, &pipelineStateDesc, &IID_ID3D12PipelineState, &config->d3dPipelineState))) {

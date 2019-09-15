@@ -11,8 +11,6 @@
 #include <stdlib.h> // Things like abs.
 #include <string.h> // memcpy, memmove, memset.
 
-#define HbNull ((void *) 0)
-
 // Boolean with a consistent size, if C/C++ interoperability is needed.
 
 typedef uint8_t HbBool;
@@ -56,8 +54,11 @@ typedef uint8_t HbBool;
 #error Unsupported compiler.
 #endif
 
-// Alignment - HbAligned must be placed after the struct keyword.
+// Data layout.
 
+#define HbArrayLength(arr) (sizeof(arr) / (sizeof((arr)[0])))
+
+// HbAligned must be placed after the struct keyword.
 #if HbPlatform_Compiler_MSVC
 #define HbAligned(alignment) __declspec(align(alignment))
 #elif HbPlatform_Compiler_GNU
@@ -65,6 +66,8 @@ typedef uint8_t HbBool;
 #else
 #error No HbAligned known for the current compiler.
 #endif
+
+#define HbOffsetOf(type, field) ((ptrdiff_t) (uint8_t const *) &(((type *) NULL)->field))
 
 // Force inlining.
 
@@ -76,28 +79,29 @@ typedef uint8_t HbBool;
 #error No HbForceInline known for the current compiler.
 #endif
 
-// Static array length.
-
-#define HbArrayLength(arr) (sizeof(arr) / (sizeof((arr)[0])))
-
 // Stack allocation.
 // WARNING: Don't call with 0, it may cause freeing all the `alloca`ted memory on some compilers.
 
 #if HbPlatform_OS_Windows
 #include <malloc.h>
-#define HbStackAlloc _alloca
+#define HbStackAlloc(type, count) _alloca((count) * sizeof(type))
 #else
 #include <alloca.h>
-#define HbStackAlloc alloca
+#define HbStackAlloc(type, count) alloca((count) * sizeof(type))
 #endif
 
 // Byte swapping.
+
 #if HbPlatform_Compiler_MSVC
 #define HbByteSwapU16 _byteswap_ushort
 #define HbByteSwapU32 _byteswap_ulong
 #define HbByteSwapU64 _byteswap_uint64
 #else
 #error No HbByteSwap for the current compiler.
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 // Common operations on numbers. For run-time floats, use fmin/fmax, not HbMinI/HbMaxI.
@@ -126,5 +130,9 @@ HbForceInline size_t HbAlignSize(size_t value, size_t alignment) {
 	--alignment;
 	return (value + alignment) & ~alignment;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

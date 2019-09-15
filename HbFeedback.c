@@ -26,7 +26,7 @@ void HbFeedback_CrashV(HbBool isAssert, char const * functionName, char const * 
 	written += HbTextA_CopyInto(message, HbArrayLength(message), written, isAssert ? " (assertion): " : ": ");
 	HbTextA_FormatV(message + written, HbArrayLength(message) - written, messageFormat, messageArguments);
 	HbFeedback_DebugMessageForce("Fatal error: %s", message);
-	MessageBoxA(HbNull, message, "Fatal error", MB_OK);
+	MessageBoxA(NULL, message, "Fatal error", MB_OK);
 	HbFeedback_Break();
 	_exit(EXIT_FAILURE);
 }

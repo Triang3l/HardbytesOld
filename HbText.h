@@ -1,6 +1,9 @@
 #ifndef HbInclude_HbText
 #define HbInclude_HbText
 #include "HbCommon.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Zero-terminated string manipulation.
@@ -57,6 +60,8 @@ HbForceInline char HbTextA_CharToUpper(char character) {
 	}
 	return character;
 }
+#define HbTextA_CharToLowerDefine(character) ((((uint8_t) (character) - 'A') < 'Z' - 'A') ? (character) + ('a' - 'A') : (character))
+#define HbTextA_CharToUpperDefine(character) ((((uint8_t) (character) - 'a') < 'z' - 'a') ? (character) - ('a' - 'A') : (character))
 #define HbTextA_Length strlen
 #define HbTextA_Compare strcmp
 #define HbTextA_ComparePart strncmp
@@ -196,4 +201,7 @@ size_t HbTextU16_Copy(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU1
 // Allocate HbTextU8_LengthU16Elems elements for this.
 size_t HbTextU16_FromU8(HbTextU16 * target, size_t targetBufferSizeElems, HbTextU8 const * source, HbBool nonNativeEndian);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
